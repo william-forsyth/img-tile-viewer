@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>img tile viewer</title>
+<style>
+  *, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  :root {
+    --bg: #0e0e0e;
+    --surface: rgba(0, 0, 0, 0.72);
+    --text-dim: #555;
+    --text-mid: #888;
+    --text-bright: #bbb;
+    --border-dim: #2a2a2a;
+    --control-bg: #1a1a1a;
+    --control-hover: #252525;
+    --accent: #666;
+    --transition-fast: 180ms;
+    --transition-grid: 350ms;
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", "Consolas", monospace;
+    color: var(--text-mid);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* ── Drop Zone ── */
+
+  #drop-zone {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    cursor: pointer;
+    transition: opacity 0.3s ease;
+  }
+
+  #drop-zone.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #drop-zone-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  #drop-zone-inner {
+    width: 340px;
+    height: 180px;
+    border: 1px solid var(--border-dim);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: border-color var(--transition-fast) ease, background var(--transition-fast) ease;
+  }
+
+  #drop-zone-inner:hover {
+    border-color: #3a3a3a;
+    background: rgba(255, 255, 255, 0.015);
+  }
+
+  #drop-zone.drag-over #drop-zone-inner {
+    border-color: var(--text-mid);
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  #drop-zone-inner .drop-label {
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    transition: color var(--transition-fast) ease;
+  }
+
+  #drop-zone.drag-over #drop-zone-inner .drop-label {
+    color: var(--text-mid);
+  }
+
+  #drop-zone-inner .drop-hint {
+    font-size: 10px;
+    color: #3a3a3a;
+    letter-spacing: 0.3px;
+  }
+
+  #drop-folder-btn {
+    width: 340px;
+    padding: 11px 0;
+    border: 1px solid var(--border-dim);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.4px;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color var(--transition-fast) ease, color var(--transition-fast) ease, background var(--transition-fast) ease;
+  }
+
+  #drop-folder-btn:hover {
+    border-color: #3a3a3a;
+    color: var(--text-mid);
+    background: rgba(255, 255, 255, 0.015);
+  }
+
+  /* ── Image Grid ── */
+
+  #grid {
+    display: grid;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transition: grid-template-columns var(--transition-grid) cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    background: var(--bg);
+    place-items: center;
+  }
+
+  #grid.hidden {
+    display: none;
+  }
+
+  #grid img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    cursor: pointer;
+  }
+
+  /* ── Controls Overlay ── */
+
+  .controls {
+    position: fixed;
+    z-index: 20;
+    opacity: 0;
+    transition: opacity var(--transition-fast) ease;
+    pointer-events: none;
+  }
+
+  .controls.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* X (close) button */
+  #btn-close {
+    top: 16px;
+    right: 16px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 3px;
+    color: var(--text-dim);
+    font-size: 15px;
+    cursor: pointer;
+    transition: color var(--transition-fast) ease, background var(--transition-fast) ease;
+    line-height: 1;
+  }
+
+  #btn-close:hover {
+    color: var(--text-bright);
+    background: rgba(0,0,0,0.85);
+  }
+
+  /* + (add) button */
+  #btn-add {
+    top: 16px;
+    left: 16px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 3px;
+    color: var(--text-dim);
+    font-size: 17px;
+    cursor: pointer;
+    transition: color var(--transition-fast) ease, background var(--transition-fast) ease;
+    line-height: 1;
+  }
+
+  #btn-add:hover {
+    color: var(--text-bright);
+    background: rgba(0,0,0,0.85);
+  }
+
+  /* Folder watch button */
+  #btn-folder {
+    top: 16px;
+    left: 56px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 3px;
+    color: var(--text-dim);
+    font-size: 13px;
+    cursor: pointer;
+    transition: color var(--transition-fast) ease, background var(--transition-fast) ease;
+    line-height: 1;
+  }
+
+  #btn-folder:hover {
+    color: var(--text-bright);
+    background: rgba(0,0,0,0.85);
+  }
+
+  #btn-folder.watching {
+    color: var(--accent);
+  }
+
+  /* Bottom slider bar */
+  #slider-bar {
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 4px;
+  }
+
+  #slider-bar .slider-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.4px;
+    min-width: 18px;
+    text-align: center;
+  }
+
+  /* Range slider styling */
+  #col-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 140px;
+    height: 3px;
+    background: var(--border-dim);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  #col-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    background: var(--text-mid);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background var(--transition-fast) ease;
+  }
+
+  #col-slider::-webkit-slider-thumb:hover {
+    background: var(--text-bright);
+  }
+
+  #col-slider::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    background: var(--text-mid);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+
+  #col-slider::-moz-range-thumb:hover {
+    background: var(--text-bright);
+  }
+
+  /* File input hidden */
+  #file-input {
+    display: none;
+  }
+
+  /* Drag overlay when in grid mode */
+  #grid-drop-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 15;
+    background: rgba(14, 14, 14, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  #grid-drop-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  #grid-drop-overlay span {
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Focus Overlay ── */
+
+  #focus-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-fast) ease;
+    cursor: zoom-out;
+  }
+
+  #focus-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  #focus-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+    transform-origin: center center;
+    transform: scale(1);
+    transition: transform 80ms ease-out;
+    cursor: default;
+    user-select: none;
+  }
+
+  #focus-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 3px;
+    color: var(--text-dim);
+    font-size: 15px;
+    cursor: pointer;
+    transition: color var(--transition-fast) ease, background var(--transition-fast) ease;
+    line-height: 1;
+  }
+
+  #focus-close:hover {
+    color: var(--text-bright);
+    background: rgba(0,0,0,0.85);
+  }
+</style>
+</head>
+<body>
+
+<!-- Drop Zone (initial state) -->
+<div id="drop-zone">
+  <div id="drop-zone-layout">
+    <div id="drop-zone-inner">
+      <div class="drop-label">drop images here</div>
+      <div class="drop-hint">or click to browse</div>
+    </div>
+    <div id="drop-folder-btn">+ watch a folder</div>
+  </div>
+</div>
+
+<!-- Image Grid -->
+<div id="grid" class="hidden"></div>
+
+<!-- Grid-mode drop overlay -->
+<div id="grid-drop-overlay"><span>drop to add</span></div>
+
+<!-- Focus view overlay -->
+<div id="focus-overlay">
+  <img id="focus-img" draggable="false">
+  <div id="focus-close">&times;</div>
+</div>
+
+<!-- Controls (visible on mouse activity) -->
+<div id="btn-close" class="controls" title="Clear all">&times;</div>
+<div id="btn-add" class="controls" title="Add images">+</div>
+<div id="btn-folder" class="controls" title="Watch a folder">⌂</div>
+<div id="slider-bar" class="controls">
+  <span class="slider-label" id="col-count">3</span>
+  <input type="range" id="col-slider" min="1" max="10" value="3">
+</div>
+
+<input type="file" id="file-input" multiple accept="image/*">
+
+<script>
+(function () {
+  const dropZone = document.getElementById('drop-zone');
+  const grid = document.getElementById('grid');
+  const gridDropOverlay = document.getElementById('grid-drop-overlay');
+  const btnClose = document.getElementById('btn-close');
+  const btnAdd = document.getElementById('btn-add');
+  const btnFolder = document.getElementById('btn-folder');
+  const dropFolderBtn = document.getElementById('drop-folder-btn');
+  const sliderBar = document.getElementById('slider-bar');
+  const colSlider = document.getElementById('col-slider');
+  const colCount = document.getElementById('col-count');
+  const fileInput = document.getElementById('file-input');
+  const focusOverlay = document.getElementById('focus-overlay');
+  const focusImg     = document.getElementById('focus-img');
+  const focusClose   = document.getElementById('focus-close');
+
+  const controls = [btnClose, btnAdd, btnFolder, sliderBar];
+  let images = [];          // Array of { url, file, source }
+  let userColumns = null;   // null = auto, otherwise user-set
+  let hideTimer = null;
+  let dragCounter = 0;
+  let focusedIdx    = -1;   // index into images[], -1 = not in focus view
+  let focusZoom     = 1.0;  // current zoom scale
+  let focusPanX     = 0;    // pan offset in screen px
+  let focusPanY     = 0;
+  let panDragging   = false;
+  let panDragStartX = 0;
+  let panDragStartY = 0;
+  let panDragMoved  = false;
+
+  // Folder watching state
+  let folderHandle = null;
+  let folderKnownFiles = new Set();
+  let folderPollTimer = null;
+
+  // ── Default column logic ──
+
+  function defaultColumns(n) {
+    if (n <= 1) return 1;
+    return Math.min(Math.ceil(n / 2), 10);
+  }
+
+  function getColumns() {
+    if (userColumns !== null) return userColumns;
+    return defaultColumns(images.length);
+  }
+
+  // ── Render ──
+
+  function render() {
+    const n = images.length;
+
+    if (n === 0) {
+      grid.classList.add('hidden');
+      dropZone.classList.remove('hidden');
+      controls.forEach(c => c.classList.remove('visible'));
+      return;
+    }
+
+    dropZone.classList.add('hidden');
+    grid.classList.remove('hidden');
+
+    const cols = getColumns();
+    const rows = Math.ceil(n / cols);
+
+    grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+    // Sync slider
+    colSlider.value = cols;
+    colCount.textContent = cols;
+
+    // Rebuild grid children
+    grid.innerHTML = '';
+    images.forEach((imgData, i) => {
+      const el = document.createElement('img');
+      el.src = imgData.url;
+      el.draggable = false;
+      el.addEventListener('click', () => openFocus(i));
+      grid.appendChild(el);
+    });
+
+    fitGrid(cols, rows);
+  }
+
+  // Compute row heights from image aspect ratios so rows are packed tight
+  // with letterboxing only above/below the entire grid.
+  function fitGrid(cols, rows) {
+    const imgEls = [...grid.querySelectorAll('img')];
+    if (imgEls.length === 0) return;
+
+    const loadPromises = imgEls.map(img =>
+      (img.complete && img.naturalWidth > 0)
+        ? Promise.resolve()
+        : new Promise(resolve => {
+            img.addEventListener('load', resolve, { once: true });
+            img.addEventListener('error', resolve, { once: true });
+          })
+    );
+
+    Promise.all(loadPromises).then(() => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const cellWidth = vw / cols;
+
+      // Each row height = cellWidth / minAR_in_row so the most-portrait
+      // image fills the full cell height (wider images are pillarboxed).
+      const rowHeights = [];
+      for (let r = 0; r < rows; r++) {
+        let minAR = Infinity;
+        for (let c = 0; c < cols; c++) {
+          const idx = r * cols + c;
+          if (idx < imgEls.length) {
+            const ar = imgEls[idx].naturalWidth / imgEls[idx].naturalHeight;
+            if (ar > 0 && ar < minAR) minAR = ar;
+          }
+        }
+        if (!isFinite(minAR)) minAR = 1;
+        rowHeights.push(cellWidth / minAR);
+      }
+
+      const naturalH = rowHeights.reduce((a, b) => a + b, 0);
+      // Scale down if the packed grid is taller than the viewport
+      const scale = naturalH > vh ? vh / naturalH : 1;
+
+      grid.style.width  = `${vw * scale}px`;
+      grid.style.height = `${naturalH * scale}px`;
+      grid.style.gridTemplateRows = rowHeights.map(h => `${h * scale}px`).join(' ');
+    });
+  }
+
+  // ── Add images ──
+
+  function addFiles(fileList) {
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml', 'image/avif'];
+    for (const file of fileList) {
+      if (validTypes.includes(file.type) || file.type.startsWith('image/')) {
+        images.push({
+          url: URL.createObjectURL(file),
+          file: file,
+          source: 'manual'
+        });
+      }
+    }
+    images.sort((a, b) => a.file.name.localeCompare(b.file.name, undefined, { numeric: true, sensitivity: 'base' }));
+    render();
+    showControls();
+  }
+
+  function clearAll() {
+    if (focusedIdx !== -1) closeFocus();
+    stopWatching();
+    images.forEach(img => URL.revokeObjectURL(img.url));
+    images = [];
+    userColumns = null;
+    grid.innerHTML = '';
+    render();
+  }
+
+  // ── Focus view ──
+
+  function applyFocusTransform() {
+    focusImg.style.transform = `translate(${focusPanX}px, ${focusPanY}px) scale(${focusZoom})`;
+  }
+
+  function updateFocusCursor() {
+    if (panDragging) {
+      focusOverlay.style.cursor = 'grabbing';
+      focusImg.style.cursor     = 'grabbing';
+    } else if (focusZoom > 1) {
+      focusOverlay.style.cursor = 'grab';
+      focusImg.style.cursor     = 'grab';
+    } else {
+      focusOverlay.style.cursor = 'zoom-out';
+      focusImg.style.cursor     = 'default';
+    }
+  }
+
+  function openFocus(idx) {
+    focusedIdx = idx;
+    focusZoom  = 1.0;
+    focusPanX  = 0;
+    focusPanY  = 0;
+    focusImg.src = images[idx].url;
+    applyFocusTransform();
+    updateFocusCursor();
+    focusOverlay.classList.add('visible');
+  }
+
+  function closeFocus() {
+    focusOverlay.classList.remove('visible');
+    focusedIdx = -1;
+    focusZoom  = 1.0;
+    focusPanX  = 0;
+    focusPanY  = 0;
+    updateFocusCursor();
+    setTimeout(() => {
+      if (focusedIdx === -1) {
+        applyFocusTransform();
+        focusImg.src = '';
+      }
+    }, 200);
+  }
+
+  // ── Folder watching ──
+
+  const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.avif'];
+
+  async function selectFolder() {
+    if (typeof window.showDirectoryPicker !== 'function') {
+      dropFolderBtn.textContent = 'requires chrome or edge';
+      setTimeout(() => { dropFolderBtn.textContent = '+ watch a folder'; }, 2500);
+      return;
+    }
+    try {
+      const handle = await window.showDirectoryPicker();
+      // Stop existing watch and remove old folder images
+      stopWatching();
+      images = images.filter(img => {
+        if (img.source === 'folder') {
+          URL.revokeObjectURL(img.url);
+          return false;
+        }
+        return true;
+      });
+      folderHandle = handle;
+      folderKnownFiles = new Set();
+      btnFolder.classList.add('watching');
+      await scanFolder();
+      startWatching();
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        dropFolderBtn.textContent = 'could not access folder';
+        setTimeout(() => { dropFolderBtn.textContent = '+ watch a folder'; }, 2500);
+      }
+    }
+  }
+
+  async function scanFolder() {
+    if (!folderHandle) return;
+    let added = false;
+
+    try {
+      for await (const entry of folderHandle.values()) {
+        if (entry.kind !== 'file') continue;
+        const name = entry.name;
+        if (folderKnownFiles.has(name)) continue;
+
+        const dot = name.lastIndexOf('.');
+        if (dot < 0) continue;
+        const ext = name.substring(dot).toLowerCase();
+        if (!imageExts.includes(ext)) continue;
+
+        folderKnownFiles.add(name);
+        try {
+          const file = await entry.getFile();
+          images.push({
+            url: URL.createObjectURL(file),
+            file: file,
+            source: 'folder'
+          });
+          added = true;
+        } catch (e) {
+          folderKnownFiles.delete(name); // retry next scan
+        }
+      }
+    } catch (e) {
+      // Permission revoked or folder deleted — stop watching
+      stopWatching();
+      return;
+    }
+
+    if (added) {
+      images.sort((a, b) => a.file.name.localeCompare(b.file.name, undefined, { numeric: true, sensitivity: 'base' }));
+      render();
+      showControls();
+    }
+  }
+
+  function startWatching() {
+    function poll() {
+      scanFolder().then(() => {
+        if (folderHandle) {
+          folderPollTimer = setTimeout(poll, 2000);
+        }
+      });
+    }
+    folderPollTimer = setTimeout(poll, 2000);
+  }
+
+  function stopWatching() {
+    clearTimeout(folderPollTimer);
+    folderPollTimer = null;
+    folderHandle = null;
+    folderKnownFiles = new Set();
+    btnFolder.classList.remove('watching');
+  }
+
+  // ── Controls visibility ──
+
+  function showControls() {
+    if (images.length === 0) return;
+    controls.forEach(c => c.classList.add('visible'));
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => {
+      // Only hide if mouse isn't over a control
+      controls.forEach(c => c.classList.remove('visible'));
+    }, 2000);
+  }
+
+  // Keep controls visible while hovering them
+  controls.forEach(c => {
+    c.addEventListener('mouseenter', () => {
+      clearTimeout(hideTimer);
+      controls.forEach(el => el.classList.add('visible'));
+    });
+    c.addEventListener('mouseleave', () => {
+      hideTimer = setTimeout(() => {
+        controls.forEach(el => el.classList.remove('visible'));
+      }, 1200);
+    });
+  });
+
+  document.addEventListener('mousemove', () => {
+    if (focusedIdx !== -1) return;
+    showControls();
+  });
+
+  // ── Drop zone events ──
+
+  dropFolderBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    selectFolder();
+  });
+
+  dropZone.addEventListener('click', () => {
+    fileInput.click();
+  });
+
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  });
+
+  dropZone.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('drag-over');
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length) {
+      addFiles(e.dataTransfer.files);
+    }
+  });
+
+  // ── Grid-mode drag & drop (add more images) ──
+
+  document.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  });
+
+  document.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    if (images.length > 0) {
+      dragCounter++;
+      gridDropOverlay.classList.add('visible');
+    }
+  });
+
+  document.addEventListener('dragleave', (e) => {
+    if (images.length > 0) {
+      dragCounter--;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        gridDropOverlay.classList.remove('visible');
+      }
+    }
+  });
+
+  document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragCounter = 0;
+    gridDropOverlay.classList.remove('visible');
+    if (e.dataTransfer.files.length && images.length > 0) {
+      addFiles(e.dataTransfer.files);
+    }
+  });
+
+  // ── File input ──
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) {
+      addFiles(fileInput.files);
+      fileInput.value = '';
+    }
+  });
+
+  // ── Slider ──
+
+  colSlider.addEventListener('input', () => {
+    userColumns = parseInt(colSlider.value, 10);
+    colCount.textContent = userColumns;
+    render();
+  });
+
+  // ── Buttons ──
+
+  btnClose.addEventListener('click', clearAll);
+
+  btnAdd.addEventListener('click', () => {
+    fileInput.click();
+  });
+
+  btnFolder.addEventListener('click', () => {
+    selectFolder();
+  });
+
+  // ── Focus overlay events ──
+
+  focusOverlay.addEventListener('click', (e) => {
+    if (e.target === focusOverlay && !panDragMoved) closeFocus();
+  });
+
+  focusClose.addEventListener('click', closeFocus);
+
+  focusOverlay.addEventListener('wheel', (e) => {
+    if (focusedIdx === -1) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const direction = e.deltaY < 0 ? 1 : -1;
+    focusZoom = Math.min(20, Math.max(0.1, focusZoom + direction * 0.12));
+    if (focusZoom <= 1) { focusPanX = 0; focusPanY = 0; }
+    applyFocusTransform();
+    updateFocusCursor();
+  }, { passive: false });
+
+  focusOverlay.addEventListener('mousedown', (e) => {
+    if (focusedIdx === -1) return;
+    panDragMoved = false;
+    if (focusZoom <= 1 || e.target === focusClose) return;
+    panDragging   = true;
+    panDragStartX = e.clientX - focusPanX;
+    panDragStartY = e.clientY - focusPanY;
+    focusImg.style.transition = 'none';
+    updateFocusCursor();
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!panDragging) return;
+    focusPanX    = e.clientX - panDragStartX;
+    focusPanY    = e.clientY - panDragStartY;
+    panDragMoved = true;
+    applyFocusTransform();
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!panDragging) return;
+    panDragging = false;
+    focusImg.style.transition = '';
+    updateFocusCursor();
+  });
+
+  // ── Scroll to adjust columns ──
+
+  document.addEventListener('wheel', (e) => {
+    if (images.length === 0) return;
+    if (focusedIdx !== -1) return;
+    e.preventDefault();
+    const direction = e.deltaY > 0 ? 1 : -1;
+    const current = getColumns();
+    const next = Math.min(10, Math.max(1, current + direction));
+    if (next === current) return;
+    userColumns = next;
+    colSlider.value = next;
+    colCount.textContent = next;
+    render();
+    showControls();
+  }, { passive: false });
+
+  // ── Keyboard ──
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (focusedIdx !== -1) {
+        closeFocus();
+      } else {
+        clearAll();
+      }
+    }
+  });
+
+  // ── Resize ──
+
+  window.addEventListener('resize', () => {
+    if (images.length > 0) {
+      const cols = getColumns();
+      const rows = Math.ceil(images.length / cols);
+      fitGrid(cols, rows);
+    }
+  });
+
+  // ── Init ──
+  render();
+})();
+</script>
+</body>
+</html>
