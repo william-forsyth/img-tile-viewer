@@ -951,7 +951,26 @@
     e.preventDefault();
     dragCounter = 0;
     gridDropOverlay.classList.remove('visible');
-    if (e.dataTransfer.files.length && images.length > 0) {
+    // Collect getAsFileSystemHandle promises synchronously — items become
+    // unavailable after the event handler returns.
+    const handlePromises = [];
+    if (e.dataTransfer.items) {
+      for (const item of e.dataTransfer.items) {
+        if (item.kind === 'file' && typeof item.getAsFileSystemHandle === 'function') {
+          handlePromises.push(item.getAsFileSystemHandle());
+        }
+      }
+    }
+    if (handlePromises.length) {
+      Promise.all(handlePromises).then(handles => {
+        const dirHandle = handles.find(h => h.kind === 'directory');
+        if (dirHandle) {
+          activateFolderHandle(dirHandle);
+        } else if (e.dataTransfer.files.length && images.length > 0) {
+          addFiles(e.dataTransfer.files);
+        }
+      });
+    } else if (e.dataTransfer.files.length && images.length > 0) {
       addFiles(e.dataTransfer.files);
     }
   });
