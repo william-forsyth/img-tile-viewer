@@ -146,6 +146,45 @@
     cursor: pointer;
   }
 
+  /* ── Per-tile remove button ── */
+
+  .tile {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tile-remove {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 22px;
+    height: 22px;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 3px;
+    color: rgba(255,255,255,0.50);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 140ms ease, color 140ms ease, background 140ms ease;
+    z-index: 5;
+  }
+
+  .tile:hover .tile-remove {
+    opacity: 1;
+  }
+
+  .tile-remove:hover {
+    color: var(--text-bright);
+    background: rgba(0,0,0,0.80);
+  }
+
   /* ── Controls Overlay ── */
 
   .controls {
@@ -241,6 +280,36 @@
 
   #btn-folder.watching {
     color: var(--accent);
+  }
+
+  /* Folder refresh button */
+  #btn-refresh {
+    top: 16px;
+    left: 96px;
+    width: 32px;
+    height: 32px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 3px;
+    color: var(--text-dim);
+    font-size: 15px;
+    cursor: pointer;
+    transition: color var(--transition-fast) ease, background var(--transition-fast) ease;
+    line-height: 1;
+  }
+
+  #btn-refresh.watching {
+    display: flex;
+  }
+
+  #btn-refresh:hover {
+    color: var(--text-bright);
+    background: rgba(0,0,0,0.85);
   }
 
   /* Bottom slider bar */
@@ -426,6 +495,7 @@
 <div id="btn-close" class="controls" title="Clear all">&times;</div>
 <div id="btn-add" class="controls" title="Add images">+</div>
 <div id="btn-folder" class="controls" title="Watch a folder">⌂</div>
+<div id="btn-refresh" class="controls" title="Refresh folder">↺</div>
 <div id="slider-bar" class="controls">
   <span class="slider-label" id="col-count">3</span>
   <input type="range" id="col-slider" min="1" max="10" value="3">
@@ -441,6 +511,7 @@
   const btnClose = document.getElementById('btn-close');
   const btnAdd = document.getElementById('btn-add');
   const btnFolder = document.getElementById('btn-folder');
+  const btnRefresh = document.getElementById('btn-refresh');
   const dropFolderBtn = document.getElementById('drop-folder-btn');
   const sliderBar = document.getElementById('slider-bar');
   const colSlider = document.getElementById('col-slider');
@@ -450,7 +521,7 @@
   const focusImg     = document.getElementById('focus-img');
   const focusClose   = document.getElementById('focus-close');
 
-  const controls = [btnClose, btnAdd, btnFolder, sliderBar];
+  const controls = [btnClose, btnAdd, btnFolder, btnRefresh, sliderBar];
   let images = [];          // Array of { url, file, source }
   let userColumns = null;   // null = auto, otherwise user-set
   let hideTimer = null;
@@ -508,11 +579,26 @@
     // Rebuild grid children
     grid.innerHTML = '';
     images.forEach((imgData, i) => {
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+
       const el = document.createElement('img');
       el.src = imgData.url;
       el.draggable = false;
       el.addEventListener('click', () => openFocus(i));
-      grid.appendChild(el);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'tile-remove';
+      removeBtn.textContent = '×';
+      removeBtn.title = 'Remove image';
+      removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeImage(i);
+      });
+
+      tile.appendChild(el);
+      tile.appendChild(removeBtn);
+      grid.appendChild(tile);
     });
 
     fitGrid(cols, rows);
@@ -580,6 +666,12 @@
     images.sort((a, b) => a.file.name.localeCompare(b.file.name, undefined, { numeric: true, sensitivity: 'base' }));
     render();
     showControls();
+  }
+
+  function removeImage(idx) {
+    URL.revokeObjectURL(images[idx].url);
+    images.splice(idx, 1);
+    render();
   }
 
   function clearAll() {
@@ -661,6 +753,7 @@
       folderHandle = handle;
       folderKnownFiles = new Set();
       btnFolder.classList.add('watching');
+      btnRefresh.classList.add('watching');
       await scanFolder();
       startWatching();
     } catch (e) {
@@ -729,7 +822,21 @@
     folderHandle = null;
     folderKnownFiles = new Set();
     btnFolder.classList.remove('watching');
+    btnRefresh.classList.remove('watching');
   }
+
+  btnRefresh.addEventListener('click', () => {
+    images = images.filter(img => {
+      if (img.source === 'folder') {
+        URL.revokeObjectURL(img.url);
+        return false;
+      }
+      return true;
+    });
+    folderKnownFiles = new Set();
+    render();
+    scanFolder();
+  });
 
   // ── Controls visibility ──
 
