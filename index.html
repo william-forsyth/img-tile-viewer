@@ -963,11 +963,10 @@
     }
     if (handlePromises.length) {
       Promise.all(handlePromises).then(handles => {
-        if (images.length === 0) return;
         const dirHandle = handles.find(h => h.kind === 'directory');
         if (dirHandle) {
           activateFolderHandle(dirHandle);
-        } else if (e.dataTransfer.files.length) {
+        } else if (e.dataTransfer.files.length && images.length > 0) {
           addFiles(e.dataTransfer.files);
         }
       });
