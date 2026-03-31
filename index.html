@@ -733,6 +733,23 @@
 
   const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.avif'];
 
+  async function activateFolderHandle(handle) {
+    stopWatching();
+    images = images.filter(img => {
+      if (img.source === 'folder') {
+        URL.revokeObjectURL(img.url);
+        return false;
+      }
+      return true;
+    });
+    folderHandle = handle;
+    folderKnownFiles = new Set();
+    btnFolder.classList.add('watching');
+    btnRefresh.classList.add('watching');
+    await scanFolder();
+    startWatching();
+  }
+
   async function selectFolder() {
     if (typeof window.showDirectoryPicker !== 'function') {
       dropFolderBtn.textContent = 'requires chrome or edge';
@@ -741,21 +758,7 @@
     }
     try {
       const handle = await window.showDirectoryPicker();
-      // Stop existing watch and remove old folder images
-      stopWatching();
-      images = images.filter(img => {
-        if (img.source === 'folder') {
-          URL.revokeObjectURL(img.url);
-          return false;
-        }
-        return true;
-      });
-      folderHandle = handle;
-      folderKnownFiles = new Set();
-      btnFolder.classList.add('watching');
-      btnRefresh.classList.add('watching');
-      await scanFolder();
-      startWatching();
+      await activateFolderHandle(handle);
     } catch (e) {
       if (e.name !== 'AbortError') {
         dropFolderBtn.textContent = 'could not access folder';
