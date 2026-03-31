@@ -899,7 +899,26 @@
     e.preventDefault();
     e.stopPropagation();
     dropZone.classList.remove('drag-over');
-    if (e.dataTransfer.files.length) {
+    // Collect getAsFileSystemHandle promises synchronously — items become
+    // unavailable after the event handler returns.
+    const handlePromises = [];
+    if (e.dataTransfer.items) {
+      for (const item of e.dataTransfer.items) {
+        if (item.kind === 'file' && typeof item.getAsFileSystemHandle === 'function') {
+          handlePromises.push(item.getAsFileSystemHandle());
+        }
+      }
+    }
+    if (handlePromises.length) {
+      Promise.all(handlePromises).then(handles => {
+        const dirHandle = handles.find(h => h.kind === 'directory');
+        if (dirHandle) {
+          activateFolderHandle(dirHandle);
+        } else if (e.dataTransfer.files.length) {
+          addFiles(e.dataTransfer.files);
+        }
+      });
+    } else if (e.dataTransfer.files.length) {
       addFiles(e.dataTransfer.files);
     }
   });
