@@ -768,6 +768,8 @@
 
   function closeFocus() {
     focusOverlay.classList.remove('visible');
+    clearTimeout(focusNavTimer);
+    focusOverlay.classList.remove('focus-nav-visible');
     focusedIdx = -1;
     focusZoom  = 1.0;
     focusPanX  = 0;
@@ -1159,6 +1161,17 @@
       } else {
         clearAll();
       }
+    }
+    if (focusedIdx === -1) return;
+    if (e.key === 'ArrowLeft') {
+      clearTimeout(focusNavTimer);
+      focusOverlay.classList.remove('focus-nav-visible');
+      navigateFocus(-1);
+    }
+    if (e.key === 'ArrowRight') {
+      clearTimeout(focusNavTimer);
+      focusOverlay.classList.remove('focus-nav-visible');
+      navigateFocus(+1);
     }
   });
 
