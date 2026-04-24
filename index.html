@@ -568,11 +568,14 @@
   const focusOverlay = document.getElementById('focus-overlay');
   const focusImg     = document.getElementById('focus-img');
   const focusClose   = document.getElementById('focus-close');
+  const focusPrev    = document.getElementById('focus-prev');
+  const focusNext    = document.getElementById('focus-next');
 
   const controls = [btnClose, btnAdd, btnFolder, btnRefresh, sliderBar];
   let images = [];          // Array of { url, file, source }
   let userColumns = null;   // null = auto, otherwise user-set
   let hideTimer = null;
+  let focusNavTimer = null;
   let dragCounter = 0;
   let focusedIdx    = -1;   // index into images[], -1 = not in focus view
   let focusZoom     = 1.0;  // current zoom scale
@@ -760,6 +763,7 @@
     applyFocusTransform();
     updateFocusCursor();
     focusOverlay.classList.add('visible');
+    updateFocusNavButtons();
   }
 
   function closeFocus() {
@@ -775,6 +779,18 @@
         focusImg.src = '';
       }
     }, 200);
+    updateFocusNavButtons();
+  }
+
+  function navigateFocus(delta) {
+    const next = (focusedIdx + delta + images.length) % images.length;
+    openFocus(next);
+  }
+
+  function updateFocusNavButtons() {
+    const show = images.length > 1;
+    focusPrev.style.display = show ? 'flex' : 'none';
+    focusNext.style.display = show ? 'flex' : 'none';
   }
 
   // ── Folder watching ──
