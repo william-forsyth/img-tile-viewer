@@ -1076,6 +1076,25 @@
 
   focusClose.addEventListener('click', closeFocus);
 
+  focusOverlay.addEventListener('mousemove', () => {
+    if (focusedIdx === -1) return;
+    focusOverlay.classList.add('focus-nav-visible');
+    clearTimeout(focusNavTimer);
+    focusNavTimer = setTimeout(() => {
+      focusOverlay.classList.remove('focus-nav-visible');
+    }, 2000);
+  });
+
+  focusPrev.addEventListener('click', (e) => {
+    e.stopPropagation();
+    navigateFocus(-1);
+  });
+
+  focusNext.addEventListener('click', (e) => {
+    e.stopPropagation();
+    navigateFocus(+1);
+  });
+
   focusOverlay.addEventListener('wheel', (e) => {
     if (focusedIdx === -1) return;
     e.preventDefault();
@@ -1090,7 +1109,7 @@
   focusOverlay.addEventListener('mousedown', (e) => {
     if (focusedIdx === -1) return;
     panDragMoved = false;
-    if (focusZoom <= 1 || e.target === focusClose) return;
+    if (focusZoom <= 1 || e.target === focusClose || e.target === focusPrev || e.target === focusNext) return;
     panDragging   = true;
     panDragStartX = e.clientX - focusPanX;
     panDragStartY = e.clientY - focusPanY;
