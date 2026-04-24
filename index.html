@@ -464,6 +464,52 @@
     color: var(--text-bright);
     background: rgba(0,0,0,0.85);
   }
+
+  #focus-prev,
+  #focus-next {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 48px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: var(--text-dim);
+    font-size: 28px;
+    font-family: var(--font);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition-fast) ease, background var(--transition-fast) ease, color var(--transition-fast) ease;
+    line-height: 1;
+    padding: 0;
+  }
+
+  #focus-prev {
+    left: 0;
+    border-radius: 0 3px 3px 0;
+  }
+
+  #focus-next {
+    right: 0;
+    border-radius: 3px 0 0 3px;
+  }
+
+  #focus-overlay.focus-nav-visible #focus-prev,
+  #focus-overlay.focus-nav-visible #focus-next {
+    opacity: 1;
+  }
+
+  #focus-prev:hover,
+  #focus-next:hover {
+    opacity: 1;
+    background: rgba(0,0,0,0.85);
+    color: var(--text-bright);
+  }
 </style>
 </head>
 <body>
