@@ -465,6 +465,168 @@
     background: rgba(0,0,0,0.85);
   }
 
+  #focus-prompt {
+    position: absolute;
+    top: 16px;
+    right: 56px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 3px;
+    color: var(--text-dim);
+    font-size: 15px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: color var(--transition-fast) ease, background var(--transition-fast) ease;
+    line-height: 1;
+    padding: 0;
+  }
+
+  #focus-prompt:hover,
+  #focus-prompt.active {
+    color: var(--text-bright);
+    background: rgba(0,0,0,0.85);
+  }
+
+  #prompt-drawer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 35;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.82);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    transform: translateY(100%);
+    transition: transform 220ms ease;
+    cursor: default;
+  }
+
+  #prompt-drawer.visible {
+    transform: translateY(0);
+  }
+
+  #prompt-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  #prompt-drawer-title {
+    color: var(--text-mid);
+    font-size: 11px;
+    letter-spacing: 0.4px;
+  }
+
+  #prompt-copy {
+    padding: 7px 10px;
+    background: var(--control-bg);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 3px;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.4px;
+    cursor: pointer;
+    transition: color var(--transition-fast) ease, background var(--transition-fast) ease;
+  }
+
+  #prompt-copy:hover:not(:disabled) {
+    color: var(--text-bright);
+    background: var(--control-hover);
+  }
+
+  #prompt-copy:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+
+  #prompt-content {
+    min-height: 120px;
+  }
+
+  #prompt-content.status {
+    display: flex;
+    align-items: center;
+    color: var(--text-dim);
+    font-size: 12px;
+    min-height: 120px;
+  }
+
+  #prompt-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+  }
+
+  .prompt-card {
+    min-width: 0;
+  }
+
+  .prompt-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 7px;
+  }
+
+  .prompt-card-title {
+    color: var(--text-mid);
+    font-size: 10px;
+    letter-spacing: 0.4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .prompt-card-close {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 auto;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 3px;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    transition: color var(--transition-fast) ease, background var(--transition-fast) ease;
+  }
+
+  .prompt-card-close:hover {
+    color: var(--text-bright);
+    background: var(--control-hover);
+  }
+
+  .prompt-card textarea {
+    width: 100%;
+    height: min(34vh, 260px);
+    resize: none;
+    padding: 12px;
+    background: rgba(8, 8, 8, 0.9);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 3px;
+    color: var(--text-bright);
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.5;
+    outline: none;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
   #focus-prev,
   #focus-next {
     position: absolute;
@@ -510,9 +672,85 @@
     background: rgba(0,0,0,0.85);
     color: var(--text-bright);
   }
+
+  /* ── Window chrome (Electron only) ── */
+  #drag-strip {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 32px;
+    -webkit-app-region: drag;
+    z-index: 1000;
+    pointer-events: none;
+  }
+
+  #win-controls {
+    position: fixed;
+    top: 0; right: 0;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    -webkit-app-region: no-drag;
+    z-index: 1001;
+    pointer-events: all;
+  }
+
+  #win-controls button {
+    width: 46px;
+    height: 32px;
+    background: transparent;
+    border: none;
+    color: var(--text-bright);
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1;
+    cursor: default;
+    opacity: 0.25;
+    transition: opacity var(--transition-fast), background var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+
+  #win-controls button:hover { opacity: 1; }
+  #win-controls .btn-close:hover { background: #c42b1c; opacity: 1; }
+
+  /* Hide window chrome in fullscreen */
+  body.fullscreen #drag-strip,
+  body.fullscreen #win-controls { display: none; }
+
+  #fullscreen-hint {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--control-bg);
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 4px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 600ms ease;
+    z-index: 2000;
+    white-space: nowrap;
+  }
+
+  #fullscreen-hint.visible { opacity: 1; }
 </style>
 </head>
 <body>
+
+<!-- Electron window chrome -->
+<div id="drag-strip">
+  <div id="win-controls">
+    <button class="btn-min"     title="Minimise">&#x2014;</button>
+    <button class="btn-max"     title="Maximise">&#x25a1;</button>
+    <button class="btn-close"   title="Close">&#x2715;</button>
+  </div>
+</div>
+<div id="fullscreen-hint">F11 &mdash; exit fullscreen</div>
 
 <!-- Drop Zone (initial state) -->
 <div id="drop-zone">
@@ -534,9 +772,17 @@
 <!-- Focus view overlay -->
 <div id="focus-overlay">
   <img id="focus-img" draggable="false">
+  <button id="focus-prompt" title="Show prompt">&#9998;</button>
   <div id="focus-close">&times;</div>
   <button id="focus-prev">&#8249;</button>
   <button id="focus-next">&#8250;</button>
+  <section id="prompt-drawer" aria-label="Image prompt">
+    <div id="prompt-drawer-header">
+      <div id="prompt-drawer-title">prompt metadata</div>
+      <button id="prompt-copy" type="button">copy</button>
+    </div>
+    <div id="prompt-content"></div>
+  </section>
 </div>
 
 <!-- Controls (visible on mouse activity) -->
@@ -568,11 +814,15 @@
   const focusOverlay = document.getElementById('focus-overlay');
   const focusImg     = document.getElementById('focus-img');
   const focusClose   = document.getElementById('focus-close');
+  const focusPrompt  = document.getElementById('focus-prompt');
   const focusPrev    = document.getElementById('focus-prev');
   const focusNext    = document.getElementById('focus-next');
+  const promptDrawer = document.getElementById('prompt-drawer');
+  const promptCopy   = document.getElementById('prompt-copy');
+  const promptContent = document.getElementById('prompt-content');
 
   const controls = [btnClose, btnAdd, btnFolder, btnRefresh, sliderBar];
-  let images = [];          // Array of { url, file, source }
+  let images = [];          // Array of { url, file, source, promptSections, promptHidden, promptLoaded }
   let userColumns = null;   // null = auto, otherwise user-set
   let hideTimer = null;
   let focusNavTimer = null;
@@ -710,7 +960,10 @@
         images.push({
           url: URL.createObjectURL(file),
           file: file,
-          source: 'manual'
+          source: 'manual',
+          promptSections: [],
+          promptHidden: [],
+          promptLoaded: false
         });
       }
     }
@@ -737,6 +990,286 @@
 
   // ── Focus view ──
 
+  function readUint32(bytes, offset) {
+    return ((bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3]) >>> 0;
+  }
+
+  function decodeLatin1(bytes) {
+    let text = '';
+    for (let i = 0; i < bytes.length; i += 4096) {
+      text += String.fromCharCode(...bytes.subarray(i, i + 4096));
+    }
+    return text;
+  }
+
+  function decodeUtf8(bytes) {
+    try {
+      return new TextDecoder('utf-8').decode(bytes);
+    } catch (e) {
+      return decodeLatin1(bytes);
+    }
+  }
+
+  function cleanMetadataText(text) {
+    return text
+      .replace(/\r\n/g, '\n')
+      .replace(/\u0000/g, '')
+      .trim();
+  }
+
+  function htmlDecode(text) {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = text;
+    return textarea.value;
+  }
+
+  function choosePromptCandidate(entries) {
+    const priorities = ['prompt', 'parameters', 'description', 'comment', 'usercomment'];
+
+    for (const key of priorities) {
+      const match = entries.find(entry => entry.keyword.toLowerCase() === key && entry.text.trim());
+      if (match) return cleanMetadataText(match.text);
+    }
+
+    const fuzzy = entries.find(entry => /prompt|parameter|description|comment/i.test(entry.keyword) && entry.text.trim());
+    if (fuzzy) return cleanMetadataText(fuzzy.text);
+
+    return '';
+  }
+
+  function extractPngPrompt(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+    if (bytes.length < signature.length || !signature.every((value, i) => bytes[i] === value)) return '';
+
+    const entries = [];
+    let offset = 8;
+
+    while (offset + 12 <= bytes.length) {
+      const length = readUint32(bytes, offset);
+      const type = decodeLatin1(bytes.subarray(offset + 4, offset + 8));
+      const dataStart = offset + 8;
+      const dataEnd = dataStart + length;
+      if (dataEnd + 4 > bytes.length) break;
+
+      const data = bytes.subarray(dataStart, dataEnd);
+
+      if (type === 'tEXt') {
+        const split = data.indexOf(0);
+        if (split > 0) {
+          entries.push({
+            keyword: decodeLatin1(data.subarray(0, split)),
+            text: decodeLatin1(data.subarray(split + 1))
+          });
+        }
+      }
+
+      if (type === 'iTXt') {
+        const keywordEnd = data.indexOf(0);
+        if (keywordEnd > 0 && data.length > keywordEnd + 5) {
+          const compressionFlag = data[keywordEnd + 1];
+          let cursor = keywordEnd + 3;
+          const languageEnd = data.indexOf(0, cursor);
+          if (languageEnd >= 0) {
+            cursor = languageEnd + 1;
+            const translatedEnd = data.indexOf(0, cursor);
+            if (translatedEnd >= 0 && compressionFlag === 0) {
+              entries.push({
+                keyword: decodeLatin1(data.subarray(0, keywordEnd)),
+                text: decodeUtf8(data.subarray(translatedEnd + 1))
+              });
+            }
+          }
+        }
+      }
+
+      if (type === 'IEND') break;
+      offset = dataEnd + 4;
+    }
+
+    return choosePromptCandidate(entries);
+  }
+
+  function extractPromptFromReadableText(text) {
+    const cleaned = cleanMetadataText(text);
+    const jsonMatch = cleaned.match(/["'](?:prompt|description|parameters)["']\s*:\s*["']([\s\S]{1,6000}?)["']/i);
+    if (jsonMatch) return cleanMetadataText(jsonMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"'));
+
+    const xmlDescription = cleaned.match(/<dc:description[\s\S]*?<rdf:li[^>]*>([\s\S]{1,6000}?)<\/rdf:li>[\s\S]*?<\/dc:description>/i);
+    if (xmlDescription) return cleanMetadataText(htmlDecode(xmlDescription[1]));
+
+    const promptAttribute = cleaned.match(/\b(?:prompt|description|parameters)=["']([\s\S]{1,6000}?)["']/i);
+    if (promptAttribute) return cleanMetadataText(htmlDecode(promptAttribute[1]));
+
+    const lineMatch = cleaned.match(/(?:^|\n)(prompt|description|parameters)\s*[:=]\s*([^\n][\s\S]{1,6000})/i);
+    if (lineMatch) return cleanMetadataText(lineMatch[2]);
+
+    return '';
+  }
+
+  function extractPromptFromBuffer(buffer) {
+    const pngPrompt = extractPngPrompt(buffer);
+    if (pngPrompt) return pngPrompt;
+
+    const metadataSlice = buffer.slice(0, Math.min(buffer.byteLength, 1024 * 1024));
+    const bytes = new Uint8Array(metadataSlice);
+    return extractPromptFromReadableText(decodeUtf8(bytes)) || extractPromptFromReadableText(decodeLatin1(bytes));
+  }
+
+  function parseJsonMaybe(text) {
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function getPromptTitle(node, id) {
+    const title = cleanMetadataText(node && node._meta && node._meta.title ? String(node._meta.title) : '');
+    const simplePrompt = title.match(/\b(true|false|negative|positive)\s+prompt\b/i);
+    if (simplePrompt) {
+      return `${simplePrompt[1].charAt(0).toUpperCase()}${simplePrompt[1].slice(1).toLowerCase()} Prompt`;
+    }
+
+    const parenthetical = title.match(/\(([^)]*prompt[^)]*)\)/i);
+    if (parenthetical) return cleanMetadataText(parenthetical[1]);
+
+    return title || `CLIPTextEncode ${id}`;
+  }
+
+  function extractComfyPromptSections(rawPrompt) {
+    const payload = parseJsonMaybe(rawPrompt);
+    if (!payload || typeof payload !== 'object') return [];
+
+    return Object.entries(payload)
+      .filter(([, node]) => node && node.class_type === 'CLIPTextEncode')
+      .map(([id, node]) => ({
+        id,
+        title: getPromptTitle(node, id),
+        text: cleanMetadataText(node.inputs && node.inputs.text != null ? String(node.inputs.text) : '')
+      }))
+      .filter(section => section.text);
+  }
+
+  function getPromptSections(rawPrompt) {
+    const cleaned = cleanMetadataText(rawPrompt);
+    if (!cleaned) return [];
+
+    const comfySections = extractComfyPromptSections(cleaned);
+    if (comfySections.length) return comfySections;
+
+    return [{
+      id: 'prompt',
+      title: 'Prompt',
+      text: cleaned
+    }];
+  }
+
+  async function loadPromptForImage(imgData) {
+    if (imgData.promptLoaded) return imgData.promptSections;
+
+    imgData.promptLoaded = true;
+    try {
+      imgData.promptSections = getPromptSections(extractPromptFromBuffer(await imgData.file.arrayBuffer()));
+    } catch (e) {
+      imgData.promptSections = [];
+    }
+
+    return imgData.promptSections;
+  }
+
+  function setPromptDrawerVisible(visible) {
+    promptDrawer.classList.toggle('visible', visible);
+    focusPrompt.classList.toggle('active', visible);
+  }
+
+  function setPromptStatus(text, copyLabel) {
+    promptContent.className = 'status';
+    promptContent.textContent = text;
+    promptCopy.disabled = true;
+    promptCopy.textContent = copyLabel || 'copy';
+  }
+
+  function getVisiblePromptSections(imgData) {
+    const hidden = new Set(imgData.promptHidden || []);
+    return (imgData.promptSections || []).filter(section => !hidden.has(section.id));
+  }
+
+  function renderPromptSections(imgData) {
+    const visibleSections = getVisiblePromptSections(imgData);
+    promptCopy.disabled = visibleSections.length === 0;
+    promptCopy.textContent = 'copy';
+
+    if (!imgData.promptSections.length) {
+      setPromptStatus('no embedded prompt metadata found');
+      return;
+    }
+
+    if (!visibleSections.length) {
+      setPromptStatus('all prompt sections hidden');
+      return;
+    }
+
+    promptContent.className = '';
+    promptContent.innerHTML = '';
+
+    const gridEl = document.createElement('div');
+    gridEl.id = 'prompt-grid';
+
+    visibleSections.forEach(section => {
+      const card = document.createElement('article');
+      card.className = 'prompt-card';
+      card.dataset.promptId = section.id;
+
+      const header = document.createElement('div');
+      header.className = 'prompt-card-header';
+
+      const title = document.createElement('div');
+      title.className = 'prompt-card-title';
+      title.textContent = section.title;
+
+      const close = document.createElement('button');
+      close.className = 'prompt-card-close';
+      close.type = 'button';
+      close.title = `Hide ${section.title}`;
+      close.textContent = 'x';
+      close.addEventListener('click', (e) => {
+        e.stopPropagation();
+        imgData.promptHidden = [...new Set([...(imgData.promptHidden || []), section.id])];
+        renderPromptSections(imgData);
+      });
+
+      const textarea = document.createElement('textarea');
+      textarea.readOnly = true;
+      textarea.spellcheck = false;
+      textarea.value = section.text;
+
+      header.appendChild(title);
+      header.appendChild(close);
+      card.appendChild(header);
+      card.appendChild(textarea);
+      gridEl.appendChild(card);
+    });
+
+    promptContent.appendChild(gridEl);
+  }
+
+  function updatePromptDrawerForFocusedImage() {
+    if (focusedIdx === -1) return;
+    const imgData = images[focusedIdx];
+
+    if (!imgData.promptLoaded) {
+      setPromptStatus('loading prompt metadata...');
+      loadPromptForImage(imgData).then(() => {
+        if (images[focusedIdx] !== imgData) return;
+        renderPromptSections(imgData);
+      });
+      return;
+    }
+
+    renderPromptSections(imgData);
+  }
+
   function applyFocusTransform() {
     focusImg.style.transform = `translate(${focusPanX}px, ${focusPanY}px) scale(${focusZoom})`;
   }
@@ -760,6 +1293,8 @@
     focusPanX  = 0;
     focusPanY  = 0;
     focusImg.src = images[idx].url;
+    setPromptDrawerVisible(false);
+    setPromptStatus('');
     applyFocusTransform();
     updateFocusCursor();
     focusOverlay.classList.add('visible');
@@ -770,6 +1305,8 @@
     focusOverlay.classList.remove('visible');
     clearTimeout(focusNavTimer);
     focusOverlay.classList.remove('focus-nav-visible');
+    setPromptDrawerVisible(false);
+    setPromptStatus('');
     focusedIdx = -1;
     focusZoom  = 1.0;
     focusPanX  = 0;
@@ -854,7 +1391,10 @@
           images.push({
             url: URL.createObjectURL(file),
             file: file,
-            source: 'folder'
+            source: 'folder',
+            promptSections: [],
+            promptHidden: [],
+            promptLoaded: false
           });
           added = true;
         } catch (e) {
@@ -1078,6 +1618,47 @@
 
   focusClose.addEventListener('click', closeFocus);
 
+  focusPrompt.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const nextVisible = !promptDrawer.classList.contains('visible');
+    setPromptDrawerVisible(nextVisible);
+    if (nextVisible) updatePromptDrawerForFocusedImage();
+  });
+
+  promptDrawer.addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+
+  promptCopy.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (promptCopy.disabled || focusedIdx === -1) return;
+
+    const sections = getVisiblePromptSections(images[focusedIdx]);
+    const copyText = sections.map(section => `${section.title}\n${section.text}`).join('\n\n');
+    if (!copyText) return;
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(copyText);
+      } else {
+        const tempTextarea = document.createElement('textarea');
+        tempTextarea.value = copyText;
+        tempTextarea.style.position = 'fixed';
+        tempTextarea.style.left = '-9999px';
+        document.body.appendChild(tempTextarea);
+        tempTextarea.focus();
+        tempTextarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempTextarea);
+      }
+      promptCopy.textContent = 'copied';
+      setTimeout(() => { promptCopy.textContent = 'copy'; }, 1200);
+    } catch (err) {
+      promptCopy.textContent = 'failed';
+      setTimeout(() => { promptCopy.textContent = 'copy'; }, 1200);
+    }
+  });
+
   focusOverlay.addEventListener('mousemove', () => {
     if (focusedIdx === -1) return;
     focusOverlay.classList.add('focus-nav-visible');
@@ -1111,7 +1692,14 @@
   focusOverlay.addEventListener('mousedown', (e) => {
     if (focusedIdx === -1) return;
     panDragMoved = false;
-    if (focusZoom <= 1 || e.target === focusClose || e.target === focusPrev || e.target === focusNext) return;
+    if (
+      focusZoom <= 1 ||
+      e.target === focusClose ||
+      e.target === focusPrompt ||
+      e.target === focusPrev ||
+      e.target === focusNext ||
+      promptDrawer.contains(e.target)
+    ) return;
     panDragging   = true;
     panDragStartX = e.clientX - focusPanX;
     panDragStartY = e.clientY - focusPanY;
@@ -1187,6 +1775,37 @@
 
   // ── Init ──
   render();
+
+  // ── Electron window controls ──
+  if (window.electronAPI) {
+    const btnMin   = document.querySelector('.btn-min');
+    const btnMax   = document.querySelector('.btn-max');
+    const btnClose = document.querySelector('.btn-close');
+    const hint     = document.getElementById('fullscreen-hint');
+
+    btnMin.addEventListener('click',   () => window.electronAPI.minimize());
+    btnMax.addEventListener('click',   () => window.electronAPI.maximize());
+    btnClose.addEventListener('click', () => window.electronAPI.close());
+
+    window.electronAPI.onMaximizeChange(isMax => {
+      btnMax.innerHTML = isMax ? '&#x29C9;' : '&#x25a1;';
+      btnMax.title     = isMax ? 'Restore' : 'Maximise';
+    });
+
+    window.electronAPI.onFullscreenChange(isFs => {
+      document.body.classList.toggle('fullscreen', isFs);
+      if (isFs) {
+        setTimeout(() => {
+          hint.classList.add('visible');
+          setTimeout(() => hint.classList.remove('visible'), 1500);
+        }, 500);
+      }
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'F11') { e.preventDefault(); window.electronAPI.toggleFullscreen(); }
+    });
+  }
 })();
 </script>
 </body>

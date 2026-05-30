@@ -1,0 +1,37 @@
+{
+  "name": "img-tile-viewer",
+  "version": "1.0.0",
+  "description": "Local offline image tile viewer",
+  "main": "main.js",
+  "scripts": {
+    "start": "node scripts/launch.js",
+    "build": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^32.3.3",
+    "electron-builder": "^26.0.0",
+    "jimp": "^0.22.12",
+    "png-to-ico": "^2.1.8"
+  },
+  "build": {
+    "appId": "com.wforsyth.img-tile-viewer",
+    "productName": "img-tile-viewer",
+    "icon": "assets/icon.ico",
+    "files": [
+      "index.html",
+      "main.js",
+      "preload.js",
+      "assets/**"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
