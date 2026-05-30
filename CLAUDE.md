@@ -4,13 +4,31 @@ Local, offline image viewer that displays multiple images in a margin-less tile 
 
 ## Quick Start
 
-Open `index.html` in any modern browser. No server, no build step, no install.
+Two ways to run, both offline:
+
+1. **Browser** — open `index.html` directly in any modern browser. No server, no build, no install. All Electron-specific code is feature-detected behind `if (window.electronAPI)`, so the file still works standalone.
+2. **Desktop app** — `npm install` once, then `npm start` to launch the Electron build (frameless window pinnable to the taskbar). See [Desktop App (Electron)](#desktop-app-electron).
 
 ## Architecture
 
-Single self-contained HTML file (`index.html`) with inline CSS and JS. Zero external dependencies — no CDNs, no web fonts, no icon libraries, no npm packages.
+The UI is a **single self-contained `index.html`** with inline CSS and JS. The viewer logic itself has **zero runtime dependencies** — no CDNs, no web fonts, no icon libraries, no JS frameworks. This is a hard constraint and must stay true: anything bundled into the shipped app is the Electron runtime only, never a web library inside `index.html`.
 
 Images are loaded via `URL.createObjectURL()` from dropped/selected files. **Images are never copied into the project folder** — they are referenced directly from the user's filesystem via browser object URLs.
+
+### Electron wrapper (desktop app)
+
+`index.html` is wrapped in Electron so it can ship as a standalone Windows `.exe` (no third-party browser needed — Electron bundles its own Chromium). The wrapper is thin:
+
+| File | Role |
+|---|---|
+| `main.js` | Main process: creates the frameless `BrowserWindow`, registers `window:*` IPC handlers, persists window size/position to a JSON file in `app.getPath('userData')`, suppresses the default menu |
+| `preload.js` | Exposes a minimal `window.electronAPI` (minimize/maximize/close/fullscreen + maximize/fullscreen change callbacks) via `contextBridge`. `contextIsolation: true`, `nodeIntegration: false` |
+| `package.json` | Electron + electron-builder devDeps, `start`/`build` scripts, NSIS + portable build targets |
+| `scripts/launch.js` | Dev launcher for `npm start` — spawns Electron with `ELECTRON_RUN_AS_NODE` stripped (see [Gotchas](#gotchas)) |
+| `scripts/gen-icon.js` | One-shot generator for `assets/icon.ico` (3×2 tile-grid motif). Already run; kept for reproducibility |
+| `assets/icon.ico` | App icon (taskbar, Alt+Tab, window) |
+
+The `index.html` ↔ main-process boundary is IPC only. The renderer never touches Node. Window-chrome markup/CSS/JS lives inline in `index.html` like everything else, guarded by `if (window.electronAPI)`.
 
 ## Constraints
 
@@ -42,6 +60,9 @@ Appears on mouse movement, fades out after ~2 seconds of inactivity. Stays visib
 | **Slider** | Bottom-center | Adjust columns per row (1–10) |
 | **Esc** | Keyboard | Same as x — clear all |
 
+### 4. Window Chrome (Electron only)
+A frameless-window drag strip (`#drag-strip`) with custom min/maximize/close buttons (`#win-controls`), hidden when running in a plain browser. `F11` toggles fullscreen and shows a brief fading hint; window chrome hides in fullscreen. The maximize glyph swaps between `□`/`❐` via the `onMaximizeChange` callback.
+
 ## Grid Layout Rules
 
 Auto-column logic (`defaultColumns`):
@@ -59,6 +80,43 @@ Row heights are aspect-ratio-aware: `fitGrid()` waits for all images to load, co
 - Images sorted by natural filename order on add (`localeCompare` with `numeric: true`)
 - Controls use `backdrop-filter: blur(12px)` with semi-transparent backgrounds
 - Grid rebuilds DOM on every render (image count is small, simplicity over optimisation)
+
+## Desktop App (Electron)
+
+### Develop / run
+```
+npm install      # once
+npm start        # launches the Electron app (via scripts/launch.js)
+```
+`npm start` goes through `scripts/launch.js`, **not** `electron .` directly — that launcher is what makes startup reliable (see [Gotchas](#gotchas)).
+
+### Build a distributable
+```
+npm run build    # electron-builder --win → dist/
+```
+Produces two artifacts in `dist/` (gitignored):
+- **NSIS installer** (`...Setup.exe`) — install once, appears in Start Menu, pin to taskbar
+- **Portable** `.exe` — single-file, no install, for quick testing
+
+### Updating the app (it's no longer just an HTML file)
+The shipped `.exe` embeds a **copy** of `index.html` taken at build time. Editing `index.html` does **not** update an already-installed app. To roll out a change:
+
+1. Edit `index.html` (and/or `main.js`/`preload.js`).
+2. Bump `version` in `package.json` (electron-builder/electron-updater compare on this).
+3. `npm run build`.
+4. Run the new NSIS installer (or replace the portable `.exe`).
+
+For quick iteration during development, just use `npm start` — it loads `index.html` live from disk, so no rebuild is needed to see changes (restart the app to pick them up). Rebuild only when you need a new installer.
+
+When changing `main.js`/`preload.js`/`package.json`, also confirm they're listed in the electron-builder `build.files` array in `package.json` or they won't be bundled.
+
+## Gotchas
+
+- **`ELECTRON_RUN_AS_NODE` breaks `npm start`.** If this env var is set in the shell (it is on the dev's machine), the `electron` binary runs as plain Node, so `require('electron')` returns the binary *path string* instead of the API — `app`/`BrowserWindow` come back `undefined` and the app crashes with `Cannot read properties of undefined (reading 'whenReady')`. **This cannot be fixed inside `main.js`** (by then Electron has already booted as Node with no GUI). `scripts/launch.js` is the fix: it spawns Electron with the var stripped. Always launch via `npm start`, never `electron .` directly. If `npm run build` ever misbehaves the same way, apply the same env strip.
+- **Renderer has no Node.** `contextIsolation: true` / `nodeIntegration: false`. The renderer can only reach the main process through the `electronAPI` surface in `preload.js`; add new IPC there, don't expose Node.
+- **Keep `index.html` dependency-free.** The zero-web-library rule still holds for the renderer. Electron/electron-builder are dev/runtime wrappers; never pull a web font, icon set, or JS framework into `index.html`.
+- **Browser fallback must keep working.** Every Electron call in `index.html` is guarded by `if (window.electronAPI)` — preserve that so the file still opens standalone in a browser. Test both modes after UI changes.
+- **Window-state persistence is best-effort.** `main.js` writes bounds to `userData/window-state.json` on resize/move (skipped while maximized/fullscreen). A corrupt file falls back to defaults silently.
 
 ## Design Guidelines
 
