@@ -2147,6 +2147,25 @@
     }
   }
 
+  async function hydrateNode(node) {
+    if (!sidebarState.expandedPaths.has(node.path)) return;
+    const result = await window.electronAPI.listDir(node.path);
+    if (!result) {
+      node.expanded = false;
+      node.children = [];
+      return;
+    }
+    node.expanded = true;
+    node.children = result.dirs.map(d => ({
+      path: d.path,
+      name: d.name,
+      mtime: d.mtime ?? 0,
+      expanded: false,
+      children: null,
+    }));
+    await Promise.all(node.children.map(child => hydrateNode(child)));
+  }
+
   async function initSidebar() {
     if (!window.electronAPI) {
       document.body.classList.add('no-electron');
@@ -2164,27 +2183,17 @@
       sidebarState.sortDir      = saved.sortDir ?? 'asc';
 
       for (const r of (saved.roots ?? [])) {
-        const result = await window.electronAPI.listDir(r.path);
-        const exists = result !== null;
-        const wasExpanded = exists && sidebarState.expandedPaths.has(r.path);
-        const root = {
+        const exists = (await window.electronAPI.listDir(r.path)) !== null;
+        sidebarState.roots.push({
           path: r.path,
           name: r.path.split(/[\\/]/).pop(),
-          expanded: wasExpanded,
+          expanded: false,
           children: exists ? null : [],  // null = not-yet-loaded; [] = empty/inaccessible
           missing: !exists,
-        };
-        if (wasExpanded) {
-          root.children = result.dirs.map(d => ({
-            path: d.path,
-            name: d.name,
-            mtime: d.mtime ?? 0,
-            expanded: sidebarState.expandedPaths.has(d.path),
-            children: null,
-          }));
-        }
-        sidebarState.roots.push(root);
+        });
       }
+      // Hydrate expanded nodes recursively (loads children for every path in expandedPaths)
+      await Promise.all(sidebarState.roots.map(r => hydrateNode(r)));
     } else {
       // First launch — open sidebar by default
       sidebarState.open = true;
