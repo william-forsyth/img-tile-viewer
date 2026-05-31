@@ -2148,6 +2148,189 @@
     });
   }
 
+  function renderSidebar() {
+    sidebarTree.innerHTML = '';
+
+    if (sidebarState.roots.length === 0) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'padding:12px 10px;color:#444;font-size:11px;';
+      empty.textContent = 'No folders added yet.';
+      sidebarTree.appendChild(empty);
+      return;
+    }
+
+    for (const root of sidebarState.roots) {
+      sidebarTree.appendChild(buildRootRow(root));
+      if (root.expanded && root.children) {
+        appendChildren(sidebarTree, root.children, 1);
+      }
+    }
+  }
+
+  function buildRootRow(root) {
+    const row = document.createElement('div');
+    row.className = 'sidebar-row sidebar-root';
+    row.dataset.path = root.path;
+
+    const expand = document.createElement('span');
+    expand.className = 'sidebar-expand';
+    expand.textContent = root.expanded ? '▼' : '▶';
+
+    const icon = document.createElement('span');
+    icon.className = 'sidebar-icon sidebar-root-icon';
+    icon.textContent = root.missing ? '⚠' : '⬡';
+
+    const name = document.createElement('span');
+    name.className = 'sidebar-name';
+    name.textContent = root.name;
+    name.title = root.path;
+
+    const remove = document.createElement('button');
+    remove.className = 'sidebar-remove';
+    remove.textContent = '✕';
+    remove.title = 'Remove root';
+    remove.addEventListener('click', e => { e.stopPropagation(); removeFolderRoot(root.path); });
+
+    row.appendChild(expand);
+    row.appendChild(icon);
+    row.appendChild(name);
+    row.appendChild(remove);
+
+    if (!root.missing) {
+      row.addEventListener('click', () => expandFolder(root.path));
+    }
+
+    return row;
+  }
+
+  function buildFolderRow(folder, depth) {
+    const row = document.createElement('div');
+    row.className = 'sidebar-row sidebar-folder';
+    row.dataset.path = folder.path;
+    if (folder.path === sidebarState.activeFolder) row.classList.add('active');
+
+    const indent = document.createElement('span');
+    indent.style.cssText = `width:${depth * 16}px;flex-shrink:0;`;
+
+    const expand = document.createElement('span');
+    expand.className = 'sidebar-expand';
+    expand.textContent = folder.children && folder.children.length > 0
+      ? (folder.expanded ? '▼' : '▶')
+      : ' ';
+
+    const icon = document.createElement('span');
+    icon.className = 'sidebar-icon sidebar-folder-icon';
+    icon.textContent = '□';
+
+    const name = document.createElement('span');
+    name.className = 'sidebar-name';
+    name.textContent = folder.name;
+    name.title = folder.path;
+
+    row.appendChild(indent);
+    row.appendChild(expand);
+    row.appendChild(icon);
+    row.appendChild(name);
+
+    row.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Single-click: load images. Expand/collapse handled separately.
+      if (folder.children === null || folder.children.length > 0) {
+        expandFolder(folder.path);
+      }
+      openFolder(folder.path);
+    });
+
+    return row;
+  }
+
+  function appendChildren(container, children, depth) {
+    if (!children) return;
+    for (const child of children) {
+      container.appendChild(buildFolderRow(child, depth));
+      if (child.expanded && child.children) {
+        appendChildren(container, child.children, depth + 1);
+      }
+    }
+  }
+
+  async function addFolderRoot() {
+    if (!window.electronAPI) return;
+    const result = await window.electronAPI.pickFolderRoot();
+    if (!result) return;
+
+    // Don't add duplicate roots
+    if (sidebarState.roots.some(r => r.path === result.path)) return;
+
+    sidebarState.roots.push({
+      path: result.path,
+      name: result.name,
+      expanded: false,
+      children: null,
+      missing: false,
+    });
+
+    renderSidebar();
+    saveSidebarState();
+  }
+
+  function removeFolderRoot(rootPath) {
+    sidebarState.roots = sidebarState.roots.filter(r => r.path !== rootPath);
+
+    // Clear active folder if it was inside this root
+    if (sidebarState.activeFolder && sidebarState.activeFolder.startsWith(rootPath)) {
+      sidebarState.activeFolder = null;
+    }
+
+    renderSidebar();
+    saveSidebarState();
+  }
+
+  function findNodeByPath(nodes, targetPath) {
+    for (const node of nodes) {
+      if (node.path === targetPath) return node;
+      if (node.children) {
+        const found = findNodeByPath(node.children, targetPath);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  async function expandFolder(folderPath) {
+    // Find the node (could be a root or nested folder)
+    const allNodes = sidebarState.roots;
+    const node = findNodeByPath(allNodes, folderPath)
+      ?? allNodes.find(r => r.path === folderPath);
+    if (!node) return;
+
+    // Load children if not yet loaded
+    if (node.children === null) {
+      const result = await window.electronAPI.listDir(node.path);
+      if (result === null) {
+        node.children = [];
+      } else {
+        node.children = result.dirs.map(d => ({
+          path: d.path,
+          name: d.name,
+          expanded: sidebarState.expandedPaths.has(d.path),
+          children: null,
+        }));
+      }
+    }
+
+    // Toggle expanded
+    node.expanded = !node.expanded;
+    if (node.expanded) {
+      sidebarState.expandedPaths.add(folderPath);
+    } else {
+      sidebarState.expandedPaths.delete(folderPath);
+    }
+
+    renderSidebar();
+    saveSidebarState();
+  }
+
   // ── Resize ──
 
   window.addEventListener('resize', () => {
