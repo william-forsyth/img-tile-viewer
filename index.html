@@ -1144,7 +1144,8 @@
   const btnSortDir      = document.getElementById('btn-sort-dir');
 
   const controls = [btnClose, btnAdd, btnNewWindow, btnFolder, btnRefresh, sliderBar, btnSidebarOpen];
-  let images = [];          // Array of { url, file, source, promptSections, promptHidden, promptLoaded }
+  let images = [];          // Array of { url, file, source, promptSections, promptHidden, promptLoaded, thumbUrl?, thumbW?, thumbStale? }
+                            // url = full-res (focus view); thumbUrl = downscaled grid thumbnail
   let userColumns = null;   // null = auto, otherwise user-set
   let hideTimer = null;
   let focusNavTimer = null;
@@ -1220,7 +1221,7 @@
       tile.className = 'tile';
 
       const el = document.createElement('img');
-      el.src = imgData.url;
+      if (imgData.thumbUrl) el.src = imgData.thumbUrl; // grid shows downscaled thumb; full-res only in focus
       el.draggable = false;
       el.addEventListener('click', () => openFocus(i));
 
@@ -1248,7 +1249,7 @@
     if (imgEls.length === 0) return;
 
     const loadPromises = imgEls.map(img =>
-      (img.complete && img.naturalWidth > 0)
+      (!img.getAttribute('src') || (img.complete && img.naturalWidth > 0))
         ? Promise.resolve()
         : new Promise(resolve => {
             img.addEventListener('load', resolve, { once: true });
@@ -1288,6 +1289,115 @@
     });
   }
 
+  // ── Thumbnails (VRAM optimisation) ──
+  // The grid renders downscaled thumbnails sized to the displayed tile so
+  // Chromium only holds small GPU textures. Full resolution is decoded solely
+  // in the focus view (which uses imgData.url directly).
+
+  let thumbToken = 0;       // bumped to cancel in-flight generations
+  let reconcileTimer = null;
+
+  // Target thumbnail width (device px) for the current column count, clamped.
+  function thumbTargetW(cols) {
+    const mainArea = document.getElementById('main-area');
+    const vw = (mainArea && mainArea.clientWidth) || window.innerWidth;
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.ceil(vw / Math.max(1, cols)) * dpr;
+    return Math.max(96, Math.min(768, w));
+  }
+
+  function isVectorOrAnimated(name) {
+    const dot = name.lastIndexOf('.');
+    if (dot < 0) return false;
+    const ext = name.substring(dot).toLowerCase();
+    return ext === '.gif' || ext === '.svg'; // GIF animation / SVG don't downscale well
+  }
+
+  // Decode a downscaled thumbnail and return a blob: object URL.
+  // Falls back to the original url (no separate thumb) for GIF/SVG or on error.
+  async function makeThumb(imgData, targetW) {
+    const name = (imgData.file && imgData.file.name) || '';
+    if (isVectorOrAnimated(name)) return imgData.url;
+    try {
+      const blob = await fetch(imgData.url).then(r => r.blob());
+      const bmp = await createImageBitmap(blob, { resizeWidth: targetW, resizeQuality: 'high' });
+      const canvas = document.createElement('canvas');
+      canvas.width = bmp.width;
+      canvas.height = bmp.height;
+      canvas.getContext('2d').drawImage(bmp, 0, 0);
+      bmp.close();
+      const out = await new Promise(res => canvas.toBlob(res, 'image/webp', 0.85));
+      if (!out) return imgData.url;
+      return URL.createObjectURL(out);
+    } catch (e) {
+      return imgData.url;
+    }
+  }
+
+  // Generate thumbnails for any images missing/stale, with bounded concurrency.
+  // Re-renders progressively (throttled) so large folders fill in as they decode.
+  function ensureThumbs(targetW) {
+    const token = ++thumbToken;
+    const queue = images.filter(im => !im.thumbUrl || im.thumbStale);
+    if (queue.length === 0) return Promise.resolve();
+    let lastRender = 0;
+
+    async function worker() {
+      while (queue.length) {
+        if (token !== thumbToken) return;
+        const im = queue.shift();
+        const turl = await makeThumb(im, targetW);
+        const stale = token !== thumbToken || !images.includes(im);
+        if (stale) {
+          if (turl !== im.url && turl.startsWith('blob:')) URL.revokeObjectURL(turl);
+          if (token !== thumbToken) return;
+          continue;
+        }
+        if (im.thumbUrl && im.thumbUrl !== im.url && im.thumbUrl !== turl) {
+          URL.revokeObjectURL(im.thumbUrl);
+        }
+        im.thumbUrl = turl;
+        im.thumbW = targetW;
+        im.thumbStale = false;
+        const now = Date.now();
+        if (now - lastRender > 150) { lastRender = now; render(); }
+      }
+    }
+
+    const N = Math.min(4, queue.length);
+    return Promise.all(Array.from({ length: N }, worker)).then(() => {
+      if (token === thumbToken) render();
+    });
+  }
+
+  // After a column change, regenerate thumbnails whose resolution has drifted
+  // from the new tile size (sharper when columns shrink, smaller to reclaim
+  // VRAM when columns grow). Debounced so dragging the slider doesn't thrash.
+  function scheduleReconcileThumbs() {
+    clearTimeout(reconcileTimer);
+    reconcileTimer = setTimeout(() => {
+      if (images.length === 0) return;
+      const target = thumbTargetW(getColumns());
+      let any = false;
+      for (const im of images) {
+        if (!im.thumbW || im.thumbUrl === im.url) continue; // not thumbed / fallback
+        if (target > im.thumbW * 1.25 || target < im.thumbW * 0.5) {
+          im.thumbStale = true;
+          any = true;
+        }
+      }
+      if (any) ensureThumbs(target);
+    }, 300);
+  }
+
+  // Revoke any blob: URLs an image owns (full-res url and/or its thumbnail).
+  function revokeImg(img) {
+    if (img.thumbUrl && img.thumbUrl !== img.url && img.thumbUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(img.thumbUrl);
+    }
+    if (img.url && img.url.startsWith('blob:')) URL.revokeObjectURL(img.url);
+  }
+
   // ── Add images ──
 
   function addFiles(fileList) {
@@ -1307,10 +1417,11 @@
     images.sort((a, b) => a.file.name.localeCompare(b.file.name, undefined, { numeric: true, sensitivity: 'base' }));
     render();
     showControls();
+    ensureThumbs(thumbTargetW(getColumns()));
   }
 
   function removeImage(idx) {
-    URL.revokeObjectURL(images[idx].url);
+    revokeImg(images[idx]);
     images.splice(idx, 1);
     render();
   }
@@ -1318,7 +1429,7 @@
   function clearAll() {
     if (focusedIdx !== -1) closeFocus();
     stopWatching();
-    images.forEach(img => URL.revokeObjectURL(img.url));
+    images.forEach(revokeImg);
     images = [];
     userColumns = null;
     grid.innerHTML = '';
@@ -1677,7 +1788,7 @@
     stopWatching();
     images = images.filter(img => {
       if (img.source === 'folder') {
-        URL.revokeObjectURL(img.url);
+        revokeImg(img);
         return false;
       }
       return true;
@@ -1748,6 +1859,7 @@
       images.sort((a, b) => a.file.name.localeCompare(b.file.name, undefined, { numeric: true, sensitivity: 'base' }));
       render();
       showControls();
+      ensureThumbs(thumbTargetW(getColumns()));
     }
   }
 
@@ -1774,7 +1886,7 @@
   btnRefresh.addEventListener('click', () => {
     images = images.filter(img => {
       if (img.source === 'folder') {
-        URL.revokeObjectURL(img.url);
+        revokeImg(img);
         return false;
       }
       return true;
@@ -1933,6 +2045,7 @@
     userColumns = parseInt(colSlider.value, 10);
     colCount.textContent = userColumns;
     render();
+    scheduleReconcileThumbs();
   });
 
   // ── Buttons ──
@@ -2080,6 +2193,7 @@
     colCount.textContent = next;
     render();
     showControls();
+    scheduleReconcileThumbs();
   }, { passive: false });
 
   // ── Keyboard ──
@@ -2547,10 +2661,7 @@
     // Replace grid images with this folder's images
     if (focusedIdx !== -1) closeFocus();
     stopWatching();
-    images.forEach(img => {
-      // Only revoke blob URLs (not local-file:// protocol URLs)
-      if (img.url.startsWith('blob:')) URL.revokeObjectURL(img.url);
-    });
+    images.forEach(revokeImg); // revokes thumbnails + any blob: full-res urls
     images = [];
     userColumns = null;
 
@@ -2581,6 +2692,7 @@
 
     render();
     if (!restoring) showControls();
+    ensureThumbs(thumbTargetW(getColumns()));
   }
 
   // ── Resize ──
@@ -2590,6 +2702,7 @@
       const cols = getColumns();
       const rows = Math.ceil(images.length / cols);
       fitGrid(cols, rows);
+      scheduleReconcileThumbs();
     }
   });
 
