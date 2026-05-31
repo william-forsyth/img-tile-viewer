@@ -2522,9 +2522,13 @@
 
     for (const filePath of result.files) {
       const filename = filePath.split(/[\\/]/).pop();
+      const url = 'local-file://' + encodeURIComponent(filePath);
       images.push({
-        url: 'local-file://' + encodeURIComponent(filePath),
-        file: { name: filename },
+        url,
+        file: {
+          name: filename,
+          arrayBuffer: async () => (await fetch(url)).arrayBuffer(),
+        },
         source: 'sidebar',
         promptSections: [],
         promptHidden: [],
