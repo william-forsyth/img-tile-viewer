@@ -2156,23 +2156,34 @@
     const saved = await window.electronAPI.loadSidebarState();
 
     if (saved) {
-      sidebarState.open      = true;  // always open on boot when drop zone is shown
-      sidebarState.width     = saved.sidebarWidth ?? 220;
-      sidebarState.activeFolder = null;  // always boot to empty drop zone (don't restore active folder)
-      sidebarState.expandedPaths = new Set();  // always boot with all folders collapsed
-      sidebarState.sortMode  = saved.sortMode ?? 'name';
-      sidebarState.sortDir   = saved.sortDir ?? 'asc';
+      sidebarState.open         = true;  // always open on boot when drop zone is shown
+      sidebarState.width        = saved.sidebarWidth ?? 220;
+      sidebarState.activeFolder = null;  // always boot to empty drop zone
+      sidebarState.expandedPaths = new Set(saved.expandedFolders ?? []);
+      sidebarState.sortMode     = saved.sortMode ?? 'name';
+      sidebarState.sortDir      = saved.sortDir ?? 'asc';
 
       for (const r of (saved.roots ?? [])) {
         const result = await window.electronAPI.listDir(r.path);
         const exists = result !== null;
-        sidebarState.roots.push({
+        const wasExpanded = exists && sidebarState.expandedPaths.has(r.path);
+        const root = {
           path: r.path,
           name: r.path.split(/[\\/]/).pop(),
-          expanded: false,  // always boot collapsed (children load lazily on first click)
+          expanded: wasExpanded,
           children: exists ? null : [],  // null = not-yet-loaded; [] = empty/inaccessible
           missing: !exists,
-        });
+        };
+        if (wasExpanded) {
+          root.children = result.dirs.map(d => ({
+            path: d.path,
+            name: d.name,
+            mtime: d.mtime ?? 0,
+            expanded: sidebarState.expandedPaths.has(d.path),
+            children: null,
+          }));
+        }
+        sidebarState.roots.push(root);
       }
     } else {
       // First launch — open sidebar by default
