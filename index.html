@@ -23,6 +23,13 @@
     --accent: #666;
     --transition-fast: 180ms;
     --transition-grid: 350ms;
+    --sidebar-width: 220px;
+    --sidebar-bg: #111111;
+    --sidebar-border: #1e1e1e;
+    --sidebar-active-bg: #1c2a3a;
+    --sidebar-active-border: #4a9eff;
+    --sidebar-active-color: #4a9eff;
+    --sidebar-root-icon: #e8a040;
   }
 
   html, body {
@@ -755,6 +762,206 @@
   }
 
   #fullscreen-hint.visible { opacity: 1; }
+
+  /* ── Folder Sidebar ── */
+
+  #sidebar-panel {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--sidebar-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width 0.15s ease;
+  }
+
+  #sidebar-panel.collapsed {
+    width: 0;
+    border-right: none;
+  }
+
+  .sidebar-header {
+    padding: 7px 10px;
+    color: #555;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--sidebar-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  #btn-collapse-sidebar {
+    background: none;
+    border: none;
+    color: #444;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    padding: 0 2px;
+    line-height: 1;
+    transition: color var(--transition-fast);
+  }
+
+  #btn-collapse-sidebar:hover { color: var(--text-mid); }
+
+  #sidebar-tree {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 0;
+    min-height: 0;
+  }
+
+  #sidebar-tree::-webkit-scrollbar { width: 4px; }
+  #sidebar-tree::-webkit-scrollbar-track { background: transparent; }
+  #sidebar-tree::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+
+  .sidebar-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background var(--transition-fast);
+    padding: 3px 8px;
+  }
+
+  .sidebar-row:hover { background: #1a1a1a; }
+
+  .sidebar-row.active {
+    background: var(--sidebar-active-bg);
+    border-left: 2px solid var(--sidebar-active-border);
+    padding-left: 6px;
+  }
+
+  .sidebar-row.active .sidebar-name { color: var(--sidebar-active-color); }
+  .sidebar-row.active .sidebar-expand { color: var(--sidebar-active-color); }
+  .sidebar-row.active .sidebar-icon { color: var(--sidebar-active-color); }
+
+  .sidebar-expand {
+    font-size: 9px;
+    color: #444;
+    width: 10px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .sidebar-icon {
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .sidebar-root-icon { color: var(--sidebar-root-icon); font-size: 13px; }
+  .sidebar-folder-icon { color: #555; }
+
+  .sidebar-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    color: #a0a0a0;
+  }
+
+  .sidebar-root .sidebar-name { color: #c8c8c8; }
+
+  .sidebar-remove {
+    background: none;
+    border: none;
+    color: transparent;
+    cursor: pointer;
+    font-size: 10px;
+    font-family: inherit;
+    padding: 0 2px;
+    line-height: 1;
+    transition: color var(--transition-fast);
+    flex-shrink: 0;
+  }
+
+  .sidebar-row:hover .sidebar-remove { color: #444; }
+  .sidebar-remove:hover { color: var(--text-mid) !important; }
+
+  .sidebar-warning { color: #e07040; font-size: 11px; }
+
+  .sidebar-footer {
+    padding: 8px 10px;
+    border-top: 1px solid var(--sidebar-border);
+    flex-shrink: 0;
+  }
+
+  #btn-add-root {
+    width: 100%;
+    background: none;
+    border: 1px dashed #2a2a2a;
+    color: #555;
+    font-size: 11px;
+    padding: 5px 8px;
+    cursor: pointer;
+    font-family: inherit;
+    border-radius: 2px;
+    text-align: left;
+    transition: border-color var(--transition-fast), color var(--transition-fast);
+  }
+
+  #btn-add-root:hover { border-color: #444; color: var(--text-mid); }
+
+  /* Sidebar resize handle */
+  #sidebar-resize {
+    width: 4px;
+    cursor: col-resize;
+    background: transparent;
+    flex-shrink: 0;
+    transition: background var(--transition-fast);
+  }
+
+  #sidebar-resize:hover,
+  #sidebar-resize.dragging { background: #2a2a2a; }
+
+  /* Sidebar toggle button (shown when sidebar is collapsed) */
+  #btn-sidebar {
+    top: 16px;
+    left: 16px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 3px;
+    color: var(--text-dim);
+    font-size: 15px;
+    cursor: pointer;
+    transition: color var(--transition-fast) ease, background var(--transition-fast) ease;
+    line-height: 1;
+  }
+
+  #btn-sidebar:hover {
+    color: var(--text-bright);
+    background: rgba(0,0,0,0.85);
+  }
+
+  /* Shift left-side buttons right when sidebar button is visible */
+  #btn-add    { left: 56px; }
+  #btn-folder { left: 96px; }
+  #btn-refresh { left: 136px; }
+
+  /* When sidebar is open: hide btn-sidebar, reset left-button positions */
+  body.sidebar-open #btn-sidebar { display: none; }
+  body.sidebar-open #btn-add    { left: 16px; }
+  body.sidebar-open #btn-folder { left: 56px; }
+  body.sidebar-open #btn-refresh { left: 96px; }
+
+  /* In browser (no Electron): hide sidebar entirely */
+  body.no-electron #sidebar-panel,
+  body.no-electron #sidebar-resize,
+  body.no-electron #btn-sidebar { display: none !important; }
 </style>
 </head>
 <body>
@@ -770,7 +977,19 @@
 <div id="fullscreen-hint">F11 &mdash; exit fullscreen</div>
 
 <div id="app-layout">
-  <!-- Sidebar injected here in Task 4 -->
+
+  <!-- Folder sidebar (Electron only) -->
+  <div id="sidebar-panel" class="collapsed">
+    <div class="sidebar-header">
+      <span>Folders</span>
+      <button id="btn-collapse-sidebar" title="Collapse sidebar">&#x2039;</button>
+    </div>
+    <div id="sidebar-tree"></div>
+    <div class="sidebar-footer">
+      <button id="btn-add-root">+ add folder root</button>
+    </div>
+  </div>
+  <div id="sidebar-resize"></div>
 
   <div id="main-area">
 
@@ -808,6 +1027,7 @@
 </div>
 
 <!-- Controls (visible on mouse activity) -->
+<div id="btn-sidebar" class="controls" title="Open folder browser">&#x29C6;</div>
 <div id="btn-close" class="controls" title="Clear all">&times;</div>
 <div id="btn-add" class="controls" title="Add images">+</div>
 <div id="btn-folder" class="controls" title="Watch a folder">⌂</div>
