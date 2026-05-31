@@ -1065,8 +1065,14 @@
   const promptDrawer = document.getElementById('prompt-drawer');
   const promptCopy   = document.getElementById('prompt-copy');
   const promptContent = document.getElementById('prompt-content');
+  const sidebarPanel    = document.getElementById('sidebar-panel');
+  const sidebarResize   = document.getElementById('sidebar-resize');
+  const sidebarTree     = document.getElementById('sidebar-tree');
+  const btnAddRoot      = document.getElementById('btn-add-root');
+  const btnCollapse     = document.getElementById('btn-collapse-sidebar');
+  const btnSidebarOpen  = document.getElementById('btn-sidebar');
 
-  const controls = [btnClose, btnAdd, btnFolder, btnRefresh, sliderBar];
+  const controls = [btnClose, btnAdd, btnFolder, btnRefresh, sliderBar, btnSidebarOpen];
   let images = [];          // Array of { url, file, source, promptSections, promptHidden, promptLoaded }
   let userColumns = null;   // null = auto, otherwise user-set
   let hideTimer = null;
@@ -1085,6 +1091,15 @@
   let folderHandle = null;
   let folderKnownFiles = new Set();
   let folderPollTimer = null;
+
+  // ── Sidebar state ──
+  let sidebarState = {
+    open: false,
+    width: 220,
+    roots: [],        // [{ path, name, expanded, children: null|[{path,name,expanded,children}] }]
+    expandedPaths: new Set(),
+    activeFolder: null,
+  };
 
   // ── Default column logic ──
 
@@ -2009,6 +2024,130 @@
     }
   });
 
+  // ── Folder sidebar ──
+
+  function saveSidebarState() {
+    if (!window.electronAPI) return;
+    window.electronAPI.saveSidebarState({
+      sidebarOpen: sidebarState.open,
+      sidebarWidth: sidebarState.width,
+      roots: sidebarState.roots.map(r => ({ path: r.path, expanded: r.expanded })),
+      expandedFolders: [...sidebarState.expandedPaths],
+      activeFolder: sidebarState.activeFolder,
+    });
+  }
+
+  function openSidebar() {
+    sidebarState.open = true;
+    sidebarPanel.classList.remove('collapsed');
+    sidebarPanel.style.width = sidebarState.width + 'px';
+    document.body.classList.add('sidebar-open');
+    saveSidebarState();
+  }
+
+  function closeSidebar() {
+    sidebarState.open = false;
+    sidebarPanel.classList.add('collapsed');
+    sidebarPanel.style.width = '';
+    document.body.classList.remove('sidebar-open');
+    saveSidebarState();
+    // Re-fit grid to newly available width
+    if (images.length > 0) {
+      const cols = getColumns();
+      const rows = Math.ceil(images.length / cols);
+      fitGrid(cols, rows);
+    }
+  }
+
+  async function initSidebar() {
+    if (!window.electronAPI) {
+      document.body.classList.add('no-electron');
+      return;
+    }
+
+    const saved = await window.electronAPI.loadSidebarState();
+
+    if (saved) {
+      sidebarState.open      = saved.sidebarOpen ?? false;
+      sidebarState.width     = saved.sidebarWidth ?? 220;
+      sidebarState.activeFolder = saved.activeFolder ?? null;
+      sidebarState.expandedPaths = new Set(saved.expandedFolders ?? []);
+
+      for (const r of (saved.roots ?? [])) {
+        const result = await window.electronAPI.listDir(r.path);
+        const exists = result !== null;
+        sidebarState.roots.push({
+          path: r.path,
+          name: r.path.split(/[\\/]/).pop(),
+          expanded: r.expanded ?? false,
+          children: exists ? null : [],  // null = not-yet-loaded; [] = empty/inaccessible
+          missing: !exists,
+        });
+      }
+    } else {
+      // First launch — open sidebar by default
+      sidebarState.open = true;
+    }
+
+    if (sidebarState.open) {
+      sidebarPanel.classList.remove('collapsed');
+      sidebarPanel.style.width = sidebarState.width + 'px';
+      document.body.classList.add('sidebar-open');
+    }
+
+    renderSidebar();
+
+    // Restore last active folder
+    if (sidebarState.activeFolder) {
+      await openFolder(sidebarState.activeFolder, /* restoring= */ true);
+    }
+
+    // Resize handle drag
+    let resizeDragging = false;
+    let resizeStartX = 0;
+    let resizeStartW = 0;
+
+    sidebarResize.addEventListener('mousedown', e => {
+      if (!sidebarState.open) return;
+      resizeDragging = true;
+      resizeStartX = e.clientX;
+      resizeStartW = sidebarState.width;
+      sidebarResize.classList.add('dragging');
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (!resizeDragging) return;
+      const delta = e.clientX - resizeStartX;
+      sidebarState.width = Math.max(150, Math.min(400, resizeStartW + delta));
+      sidebarPanel.style.width = sidebarState.width + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!resizeDragging) return;
+      resizeDragging = false;
+      sidebarResize.classList.remove('dragging');
+      saveSidebarState();
+      if (images.length > 0) {
+        const cols = getColumns();
+        const rows = Math.ceil(images.length / cols);
+        fitGrid(cols, rows);
+      }
+    });
+
+    btnCollapse.addEventListener('click', closeSidebar);
+    btnSidebarOpen.addEventListener('click', openSidebar);
+    btnAddRoot.addEventListener('click', addFolderRoot);
+
+    sidebarPanel.addEventListener('transitionend', () => {
+      if (images.length > 0) {
+        const cols = getColumns();
+        const rows = Math.ceil(images.length / cols);
+        fitGrid(cols, rows);
+      }
+    });
+  }
+
   // ── Resize ──
 
   window.addEventListener('resize', () => {
@@ -2021,6 +2160,7 @@
 
   // ── Init ──
   render();
+  initSidebar();
 
   // ── Electron window controls ──
   if (window.electronAPI) {
