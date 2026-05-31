@@ -1122,6 +1122,10 @@
       grid.classList.add('hidden');
       dropZone.classList.remove('hidden');
       controls.forEach(c => c.classList.remove('visible'));
+      // Keep sidebar toggle visible on drop zone if sidebar is closed
+      if (!sidebarState.open && window.electronAPI) {
+        btnSidebarOpen.classList.add('visible');
+      }
       return;
     }
 
@@ -2329,6 +2333,51 @@
 
     renderSidebar();
     saveSidebarState();
+  }
+
+  async function openFolder(folderPath, restoring = false) {
+    if (!window.electronAPI) return;
+
+    const result = await window.electronAPI.listDir(folderPath);
+    if (result === null) {
+      // Folder inaccessible — update node to missing if found
+      renderSidebar();
+      return;
+    }
+
+    // Replace grid images with this folder's images
+    if (focusedIdx !== -1) closeFocus();
+    stopWatching();
+    images.forEach(img => {
+      // Only revoke blob URLs (not local-file:// protocol URLs)
+      if (img.url.startsWith('blob:')) URL.revokeObjectURL(img.url);
+    });
+    images = [];
+    userColumns = null;
+
+    for (const filePath of result.files) {
+      const filename = filePath.split(/[\\/]/).pop();
+      images.push({
+        url: 'local-file://' + encodeURIComponent(filePath),
+        file: { name: filename },
+        source: 'sidebar',
+        promptSections: [],
+        promptHidden: [],
+        promptLoaded: false,
+      });
+    }
+
+    images.sort((a, b) =>
+      a.file.name.localeCompare(b.file.name, undefined, { numeric: true, sensitivity: 'base' })
+    );
+
+    sidebarState.activeFolder = folderPath;
+    renderSidebar();
+
+    if (!restoring) saveSidebarState();
+
+    render();
+    if (!restoring) showControls();
   }
 
   // ── Resize ──
