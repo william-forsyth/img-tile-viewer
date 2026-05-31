@@ -2266,6 +2266,7 @@
     for (const root of sidebarState.roots) {
       sidebarTree.appendChild(buildRootRow(root));
       if (root.expanded && root.children) {
+        sidebarTree.appendChild(buildRootImagesRow(root));
         appendChildren(sidebarTree, root.children, 1);
       }
     }
@@ -2303,6 +2304,42 @@
     if (!root.missing) {
       row.addEventListener('click', () => expandFolder(root.path));
     }
+
+    return row;
+  }
+
+  function buildRootImagesRow(root) {
+    const row = document.createElement('div');
+    row.className = 'sidebar-row sidebar-folder';
+    row.dataset.path = root.path;
+    if (root.path === sidebarState.activeFolder) row.classList.add('active');
+
+    const indent = document.createElement('span');
+    indent.style.cssText = 'width:16px;flex-shrink:0;';
+
+    const expand = document.createElement('span');
+    expand.className = 'sidebar-expand';
+    expand.textContent = ' ';
+
+    const icon = document.createElement('span');
+    icon.className = 'sidebar-icon sidebar-folder-icon';
+    icon.textContent = '⊡';
+
+    const name = document.createElement('span');
+    name.className = 'sidebar-name';
+    name.style.cssText = 'font-style:italic;color:#888;';
+    name.textContent = 'root images';
+    name.title = root.path;
+
+    row.appendChild(indent);
+    row.appendChild(expand);
+    row.appendChild(icon);
+    row.appendChild(name);
+
+    row.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openFolder(root.path);
+    });
 
     return row;
   }
