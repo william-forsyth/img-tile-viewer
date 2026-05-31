@@ -23,6 +23,13 @@
     --accent: #666;
     --transition-fast: 180ms;
     --transition-grid: 350ms;
+    --sidebar-width: 220px;
+    --sidebar-bg: #111111;
+    --sidebar-border: #1e1e1e;
+    --sidebar-active-bg: #1c2a3a;
+    --sidebar-active-border: #4a9eff;
+    --sidebar-active-color: #4a9eff;
+    --sidebar-root-icon: #e8a040;
   }
 
   html, body {
@@ -33,12 +40,29 @@
     color: var(--text-mid);
     user-select: none;
     -webkit-user-select: none;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #app-layout {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  #main-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    min-width: 0;
   }
 
   /* ── Drop Zone ── */
 
   #drop-zone {
-    position: fixed;
+    position: absolute;
     inset: 0;
     display: flex;
     align-items: center;
@@ -188,7 +212,7 @@
   /* ── Controls Overlay ── */
 
   .controls {
-    position: fixed;
+    position: absolute;
     z-index: 20;
     opacity: 0;
     transition: opacity var(--transition-fast) ease;
@@ -203,7 +227,7 @@
   /* X (close) button */
   #btn-close {
     top: 16px;
-    right: 16px;
+    left: 136px;
     width: 32px;
     height: 32px;
     display: flex;
@@ -252,6 +276,32 @@
     background: rgba(0,0,0,0.85);
   }
 
+  /* New-window button */
+  #btn-new-window {
+    top: 16px;
+    left: 56px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 3px;
+    color: var(--text-dim);
+    font-size: 15px;
+    cursor: pointer;
+    transition: color var(--transition-fast) ease, background var(--transition-fast) ease;
+    line-height: 1;
+  }
+
+  #btn-new-window:hover {
+    color: var(--text-bright);
+    background: rgba(0,0,0,0.85);
+  }
+
   /* Folder watch button */
   #btn-folder {
     top: 16px;
@@ -285,7 +335,7 @@
   /* Folder refresh button */
   #btn-refresh {
     top: 16px;
-    left: 96px;
+    left: 176px;
     width: 32px;
     height: 32px;
     display: none;
@@ -383,7 +433,7 @@
 
   /* Drag overlay when in grid mode */
   #grid-drop-overlay {
-    position: fixed;
+    position: absolute;
     inset: 0;
     z-index: 15;
     background: rgba(14, 14, 14, 0.8);
@@ -409,7 +459,7 @@
   /* ── Focus Overlay ── */
 
   #focus-overlay {
-    position: fixed;
+    position: absolute;
     inset: 0;
     z-index: 30;
     background: var(--bg);
@@ -442,7 +492,7 @@
   #focus-close {
     position: absolute;
     top: 16px;
-    right: 16px;
+    left: 16px;
     width: 32px;
     height: 32px;
     display: flex;
@@ -738,6 +788,243 @@
   }
 
   #fullscreen-hint.visible { opacity: 1; }
+
+  /* ── Folder Sidebar ── */
+
+  #sidebar-panel {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--sidebar-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width 0.15s ease;
+  }
+
+  #sidebar-panel.collapsed {
+    width: 0;
+    border-right: none;
+  }
+
+  .sidebar-header {
+    padding: 7px 10px;
+    color: #555;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--sidebar-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    white-space: nowrap;
+    /* Header sits within the top 32px #drag-strip (app-region: drag) zone;
+       carve it out so its buttons receive clicks instead of dragging the window. */
+    -webkit-app-region: no-drag;
+  }
+
+  #btn-collapse-sidebar {
+    background: none;
+    border: none;
+    color: #444;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    padding: 0 2px;
+    line-height: 1;
+    transition: color var(--transition-fast);
+  }
+
+  #btn-collapse-sidebar:hover { color: var(--text-mid); }
+
+  .sidebar-title { flex: 1; }
+
+  .sidebar-sort {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-right: 4px;
+  }
+
+  #btn-sort-mode,
+  #btn-sort-dir {
+    background: none;
+    border: none;
+    color: #555;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: lowercase;
+    padding: 1px 3px;
+    line-height: 1;
+    border-radius: 2px;
+    transition: color var(--transition-fast), background var(--transition-fast);
+  }
+
+  #btn-sort-dir { font-size: 11px; min-width: 12px; text-align: center; }
+
+  #btn-sort-mode:hover,
+  #btn-sort-dir:hover { color: var(--text-bright); background: #1a1a1a; }
+
+  #sidebar-tree {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 0;
+    min-height: 0;
+  }
+
+  #sidebar-tree::-webkit-scrollbar { width: 4px; }
+  #sidebar-tree::-webkit-scrollbar-track { background: transparent; }
+  #sidebar-tree::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+
+  .sidebar-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background var(--transition-fast);
+    padding: 3px 8px;
+  }
+
+  .sidebar-row:hover { background: #1a1a1a; }
+
+  .sidebar-row.active {
+    background: var(--sidebar-active-bg);
+    border-left: 2px solid var(--sidebar-active-border);
+    padding-left: 6px;
+  }
+
+  .sidebar-row.active .sidebar-name { color: var(--sidebar-active-color); }
+  .sidebar-row.active .sidebar-expand { color: var(--sidebar-active-color); }
+  .sidebar-row.active .sidebar-icon { color: var(--sidebar-active-color); }
+
+  .sidebar-expand {
+    font-size: 9px;
+    color: #444;
+    width: 10px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .sidebar-icon {
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .sidebar-root-icon { color: var(--sidebar-root-icon); font-size: 13px; }
+  .sidebar-folder-icon { color: #555; }
+
+  .sidebar-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    color: #a0a0a0;
+  }
+
+  .sidebar-root .sidebar-name { color: #c8c8c8; }
+
+  .sidebar-remove {
+    background: none;
+    border: none;
+    color: transparent;
+    cursor: pointer;
+    font-size: 10px;
+    font-family: inherit;
+    padding: 0 2px;
+    line-height: 1;
+    transition: color var(--transition-fast);
+    flex-shrink: 0;
+  }
+
+  .sidebar-row:hover .sidebar-remove { color: #444; }
+  .sidebar-remove:hover { color: var(--text-mid) !important; }
+
+  .sidebar-warning { color: #e07040; font-size: 11px; }
+
+  .sidebar-footer {
+    padding: 8px 10px;
+    border-top: 1px solid var(--sidebar-border);
+    flex-shrink: 0;
+  }
+
+  #btn-add-root {
+    width: 100%;
+    background: none;
+    border: 1px dashed #2a2a2a;
+    color: #555;
+    font-size: 11px;
+    padding: 5px 8px;
+    cursor: pointer;
+    font-family: inherit;
+    border-radius: 2px;
+    text-align: left;
+    transition: border-color var(--transition-fast), color var(--transition-fast);
+  }
+
+  #btn-add-root:hover { border-color: #444; color: var(--text-mid); }
+
+  /* Sidebar resize handle */
+  #sidebar-resize {
+    width: 4px;
+    cursor: col-resize;
+    background: transparent;
+    flex-shrink: 0;
+    transition: background var(--transition-fast);
+  }
+
+  #sidebar-resize:hover,
+  #sidebar-resize.dragging { background: #2a2a2a; }
+
+  /* Sidebar toggle button (shown when sidebar is collapsed) */
+  #btn-sidebar {
+    top: 16px;
+    left: 16px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 3px;
+    color: var(--text-dim);
+    font-size: 15px;
+    cursor: pointer;
+    transition: color var(--transition-fast) ease, background var(--transition-fast) ease;
+    line-height: 1;
+  }
+
+  #btn-sidebar:hover {
+    color: var(--text-bright);
+    background: rgba(0,0,0,0.85);
+  }
+
+  /* Shift left-side buttons right when sidebar button is visible */
+  #btn-new-window { left: 56px; }
+  #btn-add    { left: 96px; }
+  #btn-folder { left: 136px; }
+  #btn-close  { left: 176px; }
+  #btn-refresh { left: 216px; }
+
+  /* When sidebar is open: hide btn-sidebar, reset left-button positions */
+  body.sidebar-open #btn-sidebar { display: none; }
+  body.sidebar-open #btn-new-window { left: 16px; }
+  body.sidebar-open #btn-add    { left: 56px; }
+  body.sidebar-open #btn-folder { left: 96px; }
+  body.sidebar-open #btn-close  { left: 136px; }
+  body.sidebar-open #btn-refresh { left: 176px; }
+
+  /* In browser (no Electron): hide sidebar entirely */
+  body.no-electron #sidebar-panel,
+  body.no-electron #sidebar-resize,
+  body.no-electron #btn-sidebar { display: none !important; }
 </style>
 </head>
 <body>
@@ -751,6 +1038,27 @@
   </div>
 </div>
 <div id="fullscreen-hint">F11 &mdash; exit fullscreen</div>
+
+<div id="app-layout">
+
+  <!-- Folder sidebar (Electron only) -->
+  <div id="sidebar-panel" class="collapsed">
+    <div class="sidebar-header">
+      <span class="sidebar-title">Folders</span>
+      <div class="sidebar-sort">
+        <button id="btn-sort-mode" title="Sort by name">name</button>
+        <button id="btn-sort-dir" title="A&ndash;Z">&#x2193;</button>
+      </div>
+      <button id="btn-collapse-sidebar" title="Collapse sidebar">&#x2039;</button>
+    </div>
+    <div id="sidebar-tree"></div>
+    <div class="sidebar-footer">
+      <button id="btn-add-root">+ add folder root</button>
+    </div>
+  </div>
+  <div id="sidebar-resize"></div>
+
+  <div id="main-area">
 
 <!-- Drop Zone (initial state) -->
 <div id="drop-zone">
@@ -786,8 +1094,10 @@
 </div>
 
 <!-- Controls (visible on mouse activity) -->
+<div id="btn-sidebar" class="controls" title="Open folder browser">&#x29C6;</div>
 <div id="btn-close" class="controls" title="Clear all">&times;</div>
 <div id="btn-add" class="controls" title="Add images">+</div>
+<div id="btn-new-window" class="controls" title="Open a new window">&#x29C9;</div>
 <div id="btn-folder" class="controls" title="Watch a folder">⌂</div>
 <div id="btn-refresh" class="controls" title="Refresh folder">↺</div>
 <div id="slider-bar" class="controls">
@@ -797,6 +1107,9 @@
 
 <input type="file" id="file-input" multiple accept="image/*">
 
+  </div><!-- #main-area -->
+</div><!-- #app-layout -->
+
 <script>
 (function () {
   const dropZone = document.getElementById('drop-zone');
@@ -804,6 +1117,7 @@
   const gridDropOverlay = document.getElementById('grid-drop-overlay');
   const btnClose = document.getElementById('btn-close');
   const btnAdd = document.getElementById('btn-add');
+  const btnNewWindow = document.getElementById('btn-new-window');
   const btnFolder = document.getElementById('btn-folder');
   const btnRefresh = document.getElementById('btn-refresh');
   const dropFolderBtn = document.getElementById('drop-folder-btn');
@@ -820,8 +1134,16 @@
   const promptDrawer = document.getElementById('prompt-drawer');
   const promptCopy   = document.getElementById('prompt-copy');
   const promptContent = document.getElementById('prompt-content');
+  const sidebarPanel    = document.getElementById('sidebar-panel');
+  const sidebarResize   = document.getElementById('sidebar-resize');
+  const sidebarTree     = document.getElementById('sidebar-tree');
+  const btnAddRoot      = document.getElementById('btn-add-root');
+  const btnCollapse     = document.getElementById('btn-collapse-sidebar');
+  const btnSidebarOpen  = document.getElementById('btn-sidebar');
+  const btnSortMode     = document.getElementById('btn-sort-mode');
+  const btnSortDir      = document.getElementById('btn-sort-dir');
 
-  const controls = [btnClose, btnAdd, btnFolder, btnRefresh, sliderBar];
+  const controls = [btnClose, btnAdd, btnNewWindow, btnFolder, btnRefresh, sliderBar, btnSidebarOpen];
   let images = [];          // Array of { url, file, source, promptSections, promptHidden, promptLoaded }
   let userColumns = null;   // null = auto, otherwise user-set
   let hideTimer = null;
@@ -840,6 +1162,18 @@
   let folderHandle = null;
   let folderKnownFiles = new Set();
   let folderPollTimer = null;
+
+  // ── Sidebar state ──
+  let sidebarState = {
+    open: false,
+    initialized: false,
+    width: 220,
+    roots: [],        // [{ path, name, expanded, children: null|[{path,name,mtime,expanded,children}] }]
+    expandedPaths: new Set(),
+    activeFolder: null,
+    sortMode: 'name', // 'name' | 'date'
+    sortDir: 'asc',   // 'asc' | 'desc'
+  };
 
   // ── Default column logic ──
 
@@ -862,6 +1196,8 @@
       grid.classList.add('hidden');
       dropZone.classList.remove('hidden');
       controls.forEach(c => c.classList.remove('visible'));
+      // Always open sidebar when returning to drop zone (only after init)
+      if (window.electronAPI && sidebarState.initialized && !sidebarState.open) openSidebar();
       return;
     }
 
@@ -921,8 +1257,9 @@
     );
 
     Promise.all(loadPromises).then(() => {
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
+      const mainArea = document.getElementById('main-area');
+      const vw = mainArea.clientWidth;
+      const vh = mainArea.clientHeight;
       const cellWidth = vw / cols;
 
       // Each row height = cellWidth / minAR_in_row so the most-portrait
@@ -1606,6 +1943,11 @@
     fileInput.click();
   });
 
+  btnNewWindow.addEventListener('click', () => {
+    if (window.electronAPI) window.electronAPI.newWindow();
+    else window.open(location.href, '_blank');
+  });
+
   btnFolder.addEventListener('click', () => {
     selectFolder();
   });
@@ -1750,6 +2092,11 @@
         clearAll();
       }
     }
+    if (e.key === 'b' && e.ctrlKey && !e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      if (window.electronAPI) sidebarState.open ? closeSidebar() : openSidebar();
+      return;
+    }
     if (focusedIdx === -1) return;
     if (e.key === 'ArrowLeft') {
       clearTimeout(focusNavTimer);
@@ -1763,6 +2110,479 @@
     }
   });
 
+  // ── Folder sidebar ──
+
+  function saveSidebarState() {
+    if (!window.electronAPI) return;
+    window.electronAPI.saveSidebarState({
+      sidebarOpen: sidebarState.open,
+      sidebarWidth: sidebarState.width,
+      roots: sidebarState.roots.map(r => ({ path: r.path, expanded: r.expanded })),
+      expandedFolders: [...sidebarState.expandedPaths],
+      activeFolder: sidebarState.activeFolder,
+      sortMode: sidebarState.sortMode,
+      sortDir: sidebarState.sortDir,
+    });
+  }
+
+  function openSidebar() {
+    sidebarState.open = true;
+    sidebarPanel.classList.remove('collapsed');
+    sidebarPanel.style.width = sidebarState.width + 'px';
+    document.body.classList.add('sidebar-open');
+    saveSidebarState();
+  }
+
+  function closeSidebar() {
+    sidebarState.open = false;
+    sidebarPanel.classList.add('collapsed');
+    sidebarPanel.style.width = '';
+    document.body.classList.remove('sidebar-open');
+    saveSidebarState();
+    // Re-fit grid to newly available width
+    if (images.length > 0) {
+      const cols = getColumns();
+      const rows = Math.ceil(images.length / cols);
+      fitGrid(cols, rows);
+    }
+  }
+
+  async function hydrateNode(node) {
+    if (!sidebarState.expandedPaths.has(node.path)) return;
+    const result = await window.electronAPI.listDir(node.path);
+    if (!result) {
+      node.expanded = false;
+      node.children = [];
+      return;
+    }
+    node.expanded = true;
+    node.children = result.dirs.map(d => ({
+      path: d.path,
+      name: d.name,
+      mtime: d.mtime ?? 0,
+      expanded: false,
+      children: null,
+    }));
+    await Promise.all(node.children.map(child => hydrateNode(child)));
+  }
+
+  async function initSidebar() {
+    if (!window.electronAPI) {
+      document.body.classList.add('no-electron');
+      return;
+    }
+
+    const saved = await window.electronAPI.loadSidebarState();
+
+    if (saved) {
+      sidebarState.open         = true;  // always open on boot when drop zone is shown
+      sidebarState.width        = saved.sidebarWidth ?? 220;
+      sidebarState.activeFolder = null;  // always boot to empty drop zone
+      sidebarState.expandedPaths = new Set(saved.expandedFolders ?? []);
+      sidebarState.sortMode     = saved.sortMode ?? 'name';
+      sidebarState.sortDir      = saved.sortDir ?? 'asc';
+
+      for (const r of (saved.roots ?? [])) {
+        const exists = (await window.electronAPI.listDir(r.path)) !== null;
+        sidebarState.roots.push({
+          path: r.path,
+          name: r.path.split(/[\\/]/).pop(),
+          expanded: false,
+          children: exists ? null : [],  // null = not-yet-loaded; [] = empty/inaccessible
+          missing: !exists,
+        });
+      }
+      // Hydrate expanded nodes recursively (loads children for every path in expandedPaths)
+      await Promise.all(sidebarState.roots.map(r => hydrateNode(r)));
+    } else {
+      // First launch — open sidebar by default
+      sidebarState.open = true;
+    }
+
+    if (sidebarState.open) {
+      sidebarPanel.classList.remove('collapsed');
+      sidebarPanel.style.width = sidebarState.width + 'px';
+      document.body.classList.add('sidebar-open');
+    }
+
+    sidebarState.initialized = true;
+
+    updateSortButtons();
+    renderSidebar();
+
+    // Resize handle drag
+    let resizeDragging = false;
+    let resizeStartX = 0;
+    let resizeStartW = 0;
+
+    sidebarResize.addEventListener('mousedown', e => {
+      if (!sidebarState.open) return;
+      resizeDragging = true;
+      resizeStartX = e.clientX;
+      resizeStartW = sidebarState.width;
+      sidebarResize.classList.add('dragging');
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (!resizeDragging) return;
+      const delta = e.clientX - resizeStartX;
+      sidebarState.width = Math.max(150, Math.min(400, resizeStartW + delta));
+      sidebarPanel.style.width = sidebarState.width + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!resizeDragging) return;
+      resizeDragging = false;
+      sidebarResize.classList.remove('dragging');
+      saveSidebarState();
+      if (images.length > 0) {
+        const cols = getColumns();
+        const rows = Math.ceil(images.length / cols);
+        fitGrid(cols, rows);
+      }
+    });
+
+    btnCollapse.addEventListener('click', closeSidebar);
+    btnSidebarOpen.addEventListener('click', openSidebar);
+    btnAddRoot.addEventListener('click', addFolderRoot);
+
+    btnSortMode.addEventListener('click', () => {
+      sidebarState.sortMode = sidebarState.sortMode === 'name' ? 'date' : 'name';
+      // Sensible default direction per field: name → A–Z (asc), date → newest (desc)
+      sidebarState.sortDir = sidebarState.sortMode === 'date' ? 'desc' : 'asc';
+      updateSortButtons();
+      renderSidebar();
+      saveSidebarState();
+    });
+
+    btnSortDir.addEventListener('click', () => {
+      sidebarState.sortDir = sidebarState.sortDir === 'asc' ? 'desc' : 'asc';
+      updateSortButtons();
+      renderSidebar();
+      saveSidebarState();
+    });
+
+    sidebarPanel.addEventListener('transitionend', () => {
+      if (images.length > 0) {
+        const cols = getColumns();
+        const rows = Math.ceil(images.length / cols);
+        fitGrid(cols, rows);
+      }
+    });
+
+    // Prevent sidebar wheel events from reaching the document zoom handler
+    sidebarPanel.addEventListener('wheel', (e) => {
+      e.stopPropagation();
+    }, { passive: true });
+  }
+
+  function renderSidebar() {
+    sidebarTree.innerHTML = '';
+
+    if (sidebarState.roots.length === 0) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'padding:12px 10px;color:#444;font-size:11px;';
+      empty.textContent = 'No folders added yet.';
+      sidebarTree.appendChild(empty);
+      return;
+    }
+
+    for (const root of sidebarState.roots) {
+      sidebarTree.appendChild(buildRootRow(root));
+      if (root.expanded && root.children) {
+        sidebarTree.appendChild(buildRootImagesRow(root));
+        appendChildren(sidebarTree, root.children, 1);
+      }
+    }
+  }
+
+  function buildRootRow(root) {
+    const row = document.createElement('div');
+    row.className = 'sidebar-row sidebar-root';
+    row.dataset.path = root.path;
+
+    const expand = document.createElement('span');
+    expand.className = 'sidebar-expand';
+    expand.textContent = root.expanded ? '▼' : '▶';
+
+    const icon = document.createElement('span');
+    icon.className = 'sidebar-icon sidebar-root-icon';
+    icon.textContent = root.missing ? '⚠' : '⬡';
+
+    const name = document.createElement('span');
+    name.className = 'sidebar-name';
+    name.textContent = root.name;
+    name.title = root.path;
+
+    const remove = document.createElement('button');
+    remove.className = 'sidebar-remove';
+    remove.textContent = '✕';
+    remove.title = 'Remove root';
+    remove.addEventListener('click', e => { e.stopPropagation(); removeFolderRoot(root.path); });
+
+    row.appendChild(expand);
+    row.appendChild(icon);
+    row.appendChild(name);
+    row.appendChild(remove);
+
+    if (!root.missing) {
+      row.addEventListener('click', () => expandFolder(root.path));
+    }
+
+    return row;
+  }
+
+  function buildRootImagesRow(root) {
+    const row = document.createElement('div');
+    row.className = 'sidebar-row sidebar-folder';
+    row.dataset.path = root.path;
+    if (root.path === sidebarState.activeFolder) row.classList.add('active');
+
+    const indent = document.createElement('span');
+    indent.style.cssText = 'width:16px;flex-shrink:0;';
+
+    const expand = document.createElement('span');
+    expand.className = 'sidebar-expand';
+    expand.textContent = ' ';
+
+    const icon = document.createElement('span');
+    icon.className = 'sidebar-icon sidebar-folder-icon';
+    icon.textContent = '⊡';
+
+    const name = document.createElement('span');
+    name.className = 'sidebar-name';
+    name.style.cssText = 'font-style:italic;color:#888;';
+    name.textContent = 'root images';
+    name.title = root.path;
+
+    row.appendChild(indent);
+    row.appendChild(expand);
+    row.appendChild(icon);
+    row.appendChild(name);
+
+    row.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openFolder(root.path);
+    });
+
+    return row;
+  }
+
+  function buildFolderRow(folder, depth) {
+    const row = document.createElement('div');
+    row.className = 'sidebar-row sidebar-folder';
+    row.dataset.path = folder.path;
+    if (folder.path === sidebarState.activeFolder) row.classList.add('active');
+
+    const indent = document.createElement('span');
+    indent.style.cssText = `width:${depth * 16}px;flex-shrink:0;`;
+
+    const expand = document.createElement('span');
+    expand.className = 'sidebar-expand';
+    expand.textContent = folder.children && folder.children.length > 0
+      ? (folder.expanded ? '▼' : '▶')
+      : ' ';
+
+    const icon = document.createElement('span');
+    icon.className = 'sidebar-icon sidebar-folder-icon';
+    icon.textContent = '□';
+
+    const name = document.createElement('span');
+    name.className = 'sidebar-name';
+    name.textContent = folder.name;
+    name.title = folder.path;
+
+    row.appendChild(indent);
+    row.appendChild(expand);
+    row.appendChild(icon);
+    row.appendChild(name);
+
+    row.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Single-click: load images. Expand/collapse handled separately.
+      if (folder.children === null || folder.children.length > 0) {
+        expandFolder(folder.path);
+      }
+      openFolder(folder.path);
+    });
+
+    return row;
+  }
+
+  function sortedFolders(children) {
+    const dir = sidebarState.sortDir === 'asc' ? 1 : -1;
+    const arr = [...children];
+    if (sidebarState.sortMode === 'date') {
+      arr.sort((a, b) => ((a.mtime ?? 0) - (b.mtime ?? 0)) * dir);
+    } else {
+      arr.sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }) * dir);
+    }
+    return arr;
+  }
+
+  function updateSortButtons() {
+    if (!btnSortMode || !btnSortDir) return;
+    btnSortMode.textContent = sidebarState.sortMode;
+    if (sidebarState.sortMode === 'date') {
+      btnSortDir.textContent = sidebarState.sortDir === 'asc' ? '↑' : '↓';
+      btnSortDir.title = sidebarState.sortDir === 'asc' ? 'Oldest first' : 'Newest first';
+    } else {
+      btnSortDir.textContent = sidebarState.sortDir === 'asc' ? '↓' : '↑';
+      btnSortDir.title = sidebarState.sortDir === 'asc' ? 'A–Z' : 'Z–A';
+    }
+    btnSortMode.title = sidebarState.sortMode === 'name'
+      ? 'Sorting by name — click for date'
+      : 'Sorting by date — click for name';
+  }
+
+  function appendChildren(container, children, depth) {
+    if (!children) return;
+    for (const child of sortedFolders(children)) {
+      container.appendChild(buildFolderRow(child, depth));
+      if (child.expanded && child.children) {
+        appendChildren(container, child.children, depth + 1);
+      }
+    }
+  }
+
+  async function addFolderRoot() {
+    if (!window.electronAPI) return;
+    const result = await window.electronAPI.pickFolderRoot();
+    if (!result) return;
+
+    // Don't add duplicate roots
+    if (sidebarState.roots.some(r => r.path === result.path)) return;
+
+    sidebarState.roots.push({
+      path: result.path,
+      name: result.name,
+      expanded: false,
+      children: null,
+      missing: false,
+    });
+
+    renderSidebar();
+    saveSidebarState();
+  }
+
+  function removeFolderRoot(rootPath) {
+    sidebarState.roots = sidebarState.roots.filter(r => r.path !== rootPath);
+
+    // Clear active folder if it was inside this root
+    if (sidebarState.activeFolder && sidebarState.activeFolder.startsWith(rootPath)) {
+      sidebarState.activeFolder = null;
+    }
+
+    renderSidebar();
+    saveSidebarState();
+  }
+
+  function findNodeByPath(nodes, targetPath) {
+    for (const node of nodes) {
+      if (node.path === targetPath) return node;
+      if (node.children) {
+        const found = findNodeByPath(node.children, targetPath);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  function pruneExpandedDescendants(node) {
+    if (!node.children) return;
+    for (const child of node.children) {
+      sidebarState.expandedPaths.delete(child.path);
+      pruneExpandedDescendants(child);
+    }
+  }
+
+  async function expandFolder(folderPath) {
+    // Find the node (could be a root or nested folder)
+    const allNodes = sidebarState.roots;
+    const node = findNodeByPath(allNodes, folderPath)
+      ?? allNodes.find(r => r.path === folderPath);
+    if (!node) return;
+
+    // Load children if not yet loaded
+    if (node.children === null) {
+      const result = await window.electronAPI.listDir(node.path);
+      if (result === null) {
+        node.children = [];
+      } else {
+        node.children = result.dirs.map(d => ({
+          path: d.path,
+          name: d.name,
+          mtime: d.mtime ?? 0,
+          expanded: false,
+          children: null,
+        }));
+      }
+    }
+
+    // Toggle expanded
+    node.expanded = !node.expanded;
+    if (node.expanded) {
+      sidebarState.expandedPaths.add(folderPath);
+    } else {
+      sidebarState.expandedPaths.delete(folderPath);
+      pruneExpandedDescendants(node);
+    }
+
+    renderSidebar();
+    saveSidebarState();
+  }
+
+  async function openFolder(folderPath, restoring = false) {
+    if (!window.electronAPI) return;
+
+    const result = await window.electronAPI.listDir(folderPath);
+    if (result === null) {
+      // Folder inaccessible — update node to missing if found
+      renderSidebar();
+      return;
+    }
+
+    // Replace grid images with this folder's images
+    if (focusedIdx !== -1) closeFocus();
+    stopWatching();
+    images.forEach(img => {
+      // Only revoke blob URLs (not local-file:// protocol URLs)
+      if (img.url.startsWith('blob:')) URL.revokeObjectURL(img.url);
+    });
+    images = [];
+    userColumns = null;
+
+    for (const filePath of result.files) {
+      const filename = filePath.split(/[\\/]/).pop();
+      const url = 'local-file://' + encodeURIComponent(filePath);
+      images.push({
+        url,
+        file: {
+          name: filename,
+          arrayBuffer: async () => (await fetch(url)).arrayBuffer(),
+        },
+        source: 'sidebar',
+        promptSections: [],
+        promptHidden: [],
+        promptLoaded: false,
+      });
+    }
+
+    images.sort((a, b) =>
+      a.file.name.localeCompare(b.file.name, undefined, { numeric: true, sensitivity: 'base' })
+    );
+
+    sidebarState.activeFolder = folderPath;
+    renderSidebar();
+
+    if (!restoring) saveSidebarState();
+
+    render();
+    if (!restoring) showControls();
+  }
+
   // ── Resize ──
 
   window.addEventListener('resize', () => {
@@ -1775,6 +2595,7 @@
 
   // ── Init ──
   render();
+  initSidebar();
 
   // ── Electron window controls ──
   if (window.electronAPI) {

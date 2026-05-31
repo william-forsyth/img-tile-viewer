@@ -5,6 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "node scripts/launch.js",
+    "prebuild": "node scripts/prepare-wincodesign.js",
     "build": "electron-builder --win"
   },
   "devDependencies": {
@@ -27,7 +28,8 @@
       "target": [
         "nsis",
         "portable"
-      ]
+      ],
+      "forceCodeSigning": false
     },
     "nsis": {
       "oneClick": false,
