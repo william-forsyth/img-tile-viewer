@@ -2015,6 +2015,11 @@
         clearAll();
       }
     }
+    if (e.key === 'b' && e.ctrlKey && !e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      if (window.electronAPI) sidebarState.open ? closeSidebar() : openSidebar();
+      return;
+    }
     if (focusedIdx === -1) return;
     if (e.key === 'ArrowLeft') {
       clearTimeout(focusNavTimer);
