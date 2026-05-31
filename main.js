@@ -86,8 +86,12 @@ function createWindow() {
         .map(e => path.join(dirPath, e.name));
       const dirs = entries
         .filter(e => e.isDirectory() && !e.name.startsWith('.'))
-        .map(e => ({ name: e.name, path: path.join(dirPath, e.name) }))
-        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+        .map(e => {
+          const full = path.join(dirPath, e.name);
+          let mtime = 0;
+          try { mtime = fs.statSync(full).mtimeMs; } catch { /* keep 0 */ }
+          return { name: e.name, path: full, mtime };
+        });
       return { files, dirs };
     } catch {
       return null;

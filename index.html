@@ -809,6 +809,36 @@
 
   #btn-collapse-sidebar:hover { color: var(--text-mid); }
 
+  .sidebar-title { flex: 1; }
+
+  .sidebar-sort {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-right: 4px;
+  }
+
+  #btn-sort-mode,
+  #btn-sort-dir {
+    background: none;
+    border: none;
+    color: #555;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: lowercase;
+    padding: 1px 3px;
+    line-height: 1;
+    border-radius: 2px;
+    transition: color var(--transition-fast), background var(--transition-fast);
+  }
+
+  #btn-sort-dir { font-size: 11px; min-width: 12px; text-align: center; }
+
+  #btn-sort-mode:hover,
+  #btn-sort-dir:hover { color: var(--text-bright); background: #1a1a1a; }
+
   #sidebar-tree {
     flex: 1;
     overflow-y: auto;
@@ -981,7 +1011,11 @@
   <!-- Folder sidebar (Electron only) -->
   <div id="sidebar-panel" class="collapsed">
     <div class="sidebar-header">
-      <span>Folders</span>
+      <span class="sidebar-title">Folders</span>
+      <div class="sidebar-sort">
+        <button id="btn-sort-mode" title="Sort by name">name</button>
+        <button id="btn-sort-dir" title="A&ndash;Z">&#x2193;</button>
+      </div>
       <button id="btn-collapse-sidebar" title="Collapse sidebar">&#x2039;</button>
     </div>
     <div id="sidebar-tree"></div>
@@ -1071,6 +1105,8 @@
   const btnAddRoot      = document.getElementById('btn-add-root');
   const btnCollapse     = document.getElementById('btn-collapse-sidebar');
   const btnSidebarOpen  = document.getElementById('btn-sidebar');
+  const btnSortMode     = document.getElementById('btn-sort-mode');
+  const btnSortDir      = document.getElementById('btn-sort-dir');
 
   const controls = [btnClose, btnAdd, btnFolder, btnRefresh, sliderBar, btnSidebarOpen];
   let images = [];          // Array of { url, file, source, promptSections, promptHidden, promptLoaded }
@@ -1096,9 +1132,11 @@
   let sidebarState = {
     open: false,
     width: 220,
-    roots: [],        // [{ path, name, expanded, children: null|[{path,name,expanded,children}] }]
+    roots: [],        // [{ path, name, expanded, children: null|[{path,name,mtime,expanded,children}] }]
     expandedPaths: new Set(),
     activeFolder: null,
+    sortMode: 'name', // 'name' | 'date'
+    sortDir: 'asc',   // 'asc' | 'desc'
   };
 
   // ── Default column logic ──
@@ -2043,6 +2081,8 @@
       roots: sidebarState.roots.map(r => ({ path: r.path, expanded: r.expanded })),
       expandedFolders: [...sidebarState.expandedPaths],
       activeFolder: sidebarState.activeFolder,
+      sortMode: sidebarState.sortMode,
+      sortDir: sidebarState.sortDir,
     });
   }
 
@@ -2079,8 +2119,10 @@
     if (saved) {
       sidebarState.open      = saved.sidebarOpen ?? false;
       sidebarState.width     = saved.sidebarWidth ?? 220;
-      sidebarState.activeFolder = saved.activeFolder ?? null;
+      sidebarState.activeFolder = null;  // always boot to empty drop zone (don't restore active folder)
       sidebarState.expandedPaths = new Set(saved.expandedFolders ?? []);
+      sidebarState.sortMode  = saved.sortMode ?? 'name';
+      sidebarState.sortDir   = saved.sortDir ?? 'asc';
 
       for (const r of (saved.roots ?? [])) {
         const result = await window.electronAPI.listDir(r.path);
@@ -2104,12 +2146,8 @@
       document.body.classList.add('sidebar-open');
     }
 
+    updateSortButtons();
     renderSidebar();
-
-    // Restore last active folder
-    if (sidebarState.activeFolder) {
-      await openFolder(sidebarState.activeFolder, /* restoring= */ true);
-    }
 
     // Resize handle drag
     let resizeDragging = false;
@@ -2147,6 +2185,22 @@
     btnCollapse.addEventListener('click', closeSidebar);
     btnSidebarOpen.addEventListener('click', openSidebar);
     btnAddRoot.addEventListener('click', addFolderRoot);
+
+    btnSortMode.addEventListener('click', () => {
+      sidebarState.sortMode = sidebarState.sortMode === 'name' ? 'date' : 'name';
+      // Sensible default direction per field: name → A–Z (asc), date → newest (desc)
+      sidebarState.sortDir = sidebarState.sortMode === 'date' ? 'desc' : 'asc';
+      updateSortButtons();
+      renderSidebar();
+      saveSidebarState();
+    });
+
+    btnSortDir.addEventListener('click', () => {
+      sidebarState.sortDir = sidebarState.sortDir === 'asc' ? 'desc' : 'asc';
+      updateSortButtons();
+      renderSidebar();
+      saveSidebarState();
+    });
 
     sidebarPanel.addEventListener('transitionend', () => {
       if (images.length > 0) {
@@ -2253,9 +2307,36 @@
     return row;
   }
 
+  function sortedFolders(children) {
+    const dir = sidebarState.sortDir === 'asc' ? 1 : -1;
+    const arr = [...children];
+    if (sidebarState.sortMode === 'date') {
+      arr.sort((a, b) => ((a.mtime ?? 0) - (b.mtime ?? 0)) * dir);
+    } else {
+      arr.sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }) * dir);
+    }
+    return arr;
+  }
+
+  function updateSortButtons() {
+    if (!btnSortMode || !btnSortDir) return;
+    btnSortMode.textContent = sidebarState.sortMode;
+    if (sidebarState.sortMode === 'date') {
+      btnSortDir.textContent = sidebarState.sortDir === 'asc' ? '↑' : '↓';
+      btnSortDir.title = sidebarState.sortDir === 'asc' ? 'Oldest first' : 'Newest first';
+    } else {
+      btnSortDir.textContent = sidebarState.sortDir === 'asc' ? '↓' : '↑';
+      btnSortDir.title = sidebarState.sortDir === 'asc' ? 'A–Z' : 'Z–A';
+    }
+    btnSortMode.title = sidebarState.sortMode === 'name'
+      ? 'Sorting by name — click for date'
+      : 'Sorting by date — click for name';
+  }
+
   function appendChildren(container, children, depth) {
     if (!children) return;
-    for (const child of children) {
+    for (const child of sortedFolders(children)) {
       container.appendChild(buildFolderRow(child, depth));
       if (child.expanded && child.children) {
         appendChildren(container, child.children, depth + 1);
@@ -2322,6 +2403,7 @@
         node.children = result.dirs.map(d => ({
           path: d.path,
           name: d.name,
+          mtime: d.mtime ?? 0,
           expanded: sidebarState.expandedPaths.has(d.path),
           children: null,
         }));
