@@ -2490,6 +2490,14 @@
     return null;
   }
 
+  function pruneExpandedDescendants(node) {
+    if (!node.children) return;
+    for (const child of node.children) {
+      sidebarState.expandedPaths.delete(child.path);
+      pruneExpandedDescendants(child);
+    }
+  }
+
   async function expandFolder(folderPath) {
     // Find the node (could be a root or nested folder)
     const allNodes = sidebarState.roots;
@@ -2507,7 +2515,7 @@
           path: d.path,
           name: d.name,
           mtime: d.mtime ?? 0,
-          expanded: sidebarState.expandedPaths.has(d.path),
+          expanded: false,
           children: null,
         }));
       }
@@ -2519,6 +2527,7 @@
       sidebarState.expandedPaths.add(folderPath);
     } else {
       sidebarState.expandedPaths.delete(folderPath);
+      pruneExpandedDescendants(node);
     }
 
     renderSidebar();
