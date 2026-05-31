@@ -227,7 +227,7 @@
   /* X (close) button */
   #btn-close {
     top: 16px;
-    right: 16px;
+    left: 136px;
     width: 32px;
     height: 32px;
     display: flex;
@@ -276,6 +276,32 @@
     background: rgba(0,0,0,0.85);
   }
 
+  /* New-window button */
+  #btn-new-window {
+    top: 16px;
+    left: 56px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 3px;
+    color: var(--text-dim);
+    font-size: 15px;
+    cursor: pointer;
+    transition: color var(--transition-fast) ease, background var(--transition-fast) ease;
+    line-height: 1;
+  }
+
+  #btn-new-window:hover {
+    color: var(--text-bright);
+    background: rgba(0,0,0,0.85);
+  }
+
   /* Folder watch button */
   #btn-folder {
     top: 16px;
@@ -309,7 +335,7 @@
   /* Folder refresh button */
   #btn-refresh {
     top: 16px;
-    left: 96px;
+    left: 176px;
     width: 32px;
     height: 32px;
     display: none;
@@ -466,7 +492,7 @@
   #focus-close {
     position: absolute;
     top: 16px;
-    right: 16px;
+    left: 16px;
     width: 32px;
     height: 32px;
     display: flex;
@@ -793,6 +819,9 @@
     justify-content: space-between;
     flex-shrink: 0;
     white-space: nowrap;
+    /* Header sits within the top 32px #drag-strip (app-region: drag) zone;
+       carve it out so its buttons receive clicks instead of dragging the window. */
+    -webkit-app-region: no-drag;
   }
 
   #btn-collapse-sidebar {
@@ -978,15 +1007,19 @@
   }
 
   /* Shift left-side buttons right when sidebar button is visible */
-  #btn-add    { left: 56px; }
-  #btn-folder { left: 96px; }
-  #btn-refresh { left: 136px; }
+  #btn-new-window { left: 56px; }
+  #btn-add    { left: 96px; }
+  #btn-folder { left: 136px; }
+  #btn-close  { left: 176px; }
+  #btn-refresh { left: 216px; }
 
   /* When sidebar is open: hide btn-sidebar, reset left-button positions */
   body.sidebar-open #btn-sidebar { display: none; }
-  body.sidebar-open #btn-add    { left: 16px; }
-  body.sidebar-open #btn-folder { left: 56px; }
-  body.sidebar-open #btn-refresh { left: 96px; }
+  body.sidebar-open #btn-new-window { left: 16px; }
+  body.sidebar-open #btn-add    { left: 56px; }
+  body.sidebar-open #btn-folder { left: 96px; }
+  body.sidebar-open #btn-close  { left: 136px; }
+  body.sidebar-open #btn-refresh { left: 176px; }
 
   /* In browser (no Electron): hide sidebar entirely */
   body.no-electron #sidebar-panel,
@@ -1064,6 +1097,7 @@
 <div id="btn-sidebar" class="controls" title="Open folder browser">&#x29C6;</div>
 <div id="btn-close" class="controls" title="Clear all">&times;</div>
 <div id="btn-add" class="controls" title="Add images">+</div>
+<div id="btn-new-window" class="controls" title="Open a new window">&#x29C9;</div>
 <div id="btn-folder" class="controls" title="Watch a folder">⌂</div>
 <div id="btn-refresh" class="controls" title="Refresh folder">↺</div>
 <div id="slider-bar" class="controls">
@@ -1083,6 +1117,7 @@
   const gridDropOverlay = document.getElementById('grid-drop-overlay');
   const btnClose = document.getElementById('btn-close');
   const btnAdd = document.getElementById('btn-add');
+  const btnNewWindow = document.getElementById('btn-new-window');
   const btnFolder = document.getElementById('btn-folder');
   const btnRefresh = document.getElementById('btn-refresh');
   const dropFolderBtn = document.getElementById('drop-folder-btn');
@@ -1108,7 +1143,7 @@
   const btnSortMode     = document.getElementById('btn-sort-mode');
   const btnSortDir      = document.getElementById('btn-sort-dir');
 
-  const controls = [btnClose, btnAdd, btnFolder, btnRefresh, sliderBar, btnSidebarOpen];
+  const controls = [btnClose, btnAdd, btnNewWindow, btnFolder, btnRefresh, sliderBar, btnSidebarOpen];
   let images = [];          // Array of { url, file, source, promptSections, promptHidden, promptLoaded }
   let userColumns = null;   // null = auto, otherwise user-set
   let hideTimer = null;
@@ -1131,6 +1166,7 @@
   // ── Sidebar state ──
   let sidebarState = {
     open: false,
+    initialized: false,
     width: 220,
     roots: [],        // [{ path, name, expanded, children: null|[{path,name,mtime,expanded,children}] }]
     expandedPaths: new Set(),
@@ -1160,10 +1196,8 @@
       grid.classList.add('hidden');
       dropZone.classList.remove('hidden');
       controls.forEach(c => c.classList.remove('visible'));
-      // Keep sidebar toggle visible on drop zone if sidebar is closed
-      if (!sidebarState.open && window.electronAPI) {
-        btnSidebarOpen.classList.add('visible');
-      }
+      // Always open sidebar when returning to drop zone (only after init)
+      if (window.electronAPI && sidebarState.initialized && !sidebarState.open) openSidebar();
       return;
     }
 
@@ -1909,6 +1943,11 @@
     fileInput.click();
   });
 
+  btnNewWindow.addEventListener('click', () => {
+    if (window.electronAPI) window.electronAPI.newWindow();
+    else window.open(location.href, '_blank');
+  });
+
   btnFolder.addEventListener('click', () => {
     selectFolder();
   });
@@ -2117,10 +2156,10 @@
     const saved = await window.electronAPI.loadSidebarState();
 
     if (saved) {
-      sidebarState.open      = saved.sidebarOpen ?? false;
+      sidebarState.open      = true;  // always open on boot when drop zone is shown
       sidebarState.width     = saved.sidebarWidth ?? 220;
       sidebarState.activeFolder = null;  // always boot to empty drop zone (don't restore active folder)
-      sidebarState.expandedPaths = new Set(saved.expandedFolders ?? []);
+      sidebarState.expandedPaths = new Set();  // always boot with all folders collapsed
       sidebarState.sortMode  = saved.sortMode ?? 'name';
       sidebarState.sortDir   = saved.sortDir ?? 'asc';
 
@@ -2130,7 +2169,7 @@
         sidebarState.roots.push({
           path: r.path,
           name: r.path.split(/[\\/]/).pop(),
-          expanded: r.expanded ?? false,
+          expanded: false,  // always boot collapsed (children load lazily on first click)
           children: exists ? null : [],  // null = not-yet-loaded; [] = empty/inaccessible
           missing: !exists,
         });
@@ -2145,6 +2184,8 @@
       sidebarPanel.style.width = sidebarState.width + 'px';
       document.body.classList.add('sidebar-open');
     }
+
+    sidebarState.initialized = true;
 
     updateSortButtons();
     renderSidebar();

@@ -117,6 +117,7 @@ When changing `main.js`/`preload.js`/`package.json`, also confirm they're listed
 - **Keep `index.html` dependency-free.** The zero-web-library rule still holds for the renderer. Electron/electron-builder are dev/runtime wrappers; never pull a web font, icon set, or JS framework into `index.html`.
 - **Browser fallback must keep working.** Every Electron call in `index.html` is guarded by `if (window.electronAPI)` — preserve that so the file still opens standalone in a browser. Test both modes after UI changes.
 - **Window-state persistence is best-effort.** `main.js` writes bounds to `userData/window-state.json` on resize/move (skipped while maximized/fullscreen). A corrupt file falls back to defaults silently.
+- **`npm run build` winCodeSign symlink failure.** electron-builder downloads `winCodeSign-2.6.0.7z` and extracts it with 7-Zip's `-snld` flag, which tries to create the archive's two macOS `.dylib` symlinks as real Windows symlinks — that needs the symlink-create privilege (admin or Developer Mode), which the dev machine lacks, so the build aborts with `Cannot create symbolic link : A required privilege is not held by the client`. Fix: `scripts/prepare-wincodesign.js` (run automatically by `npm run build` via the npm `prebuild` hook) pre-seeds `%LOCALAPPDATA%\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0\` by extracting the archive *without* `-snld` (and skipping the unused `darwin/` folder), so electron-builder gets a cache hit and never runs the failing extraction. It's idempotent — re-running the build re-uses the seeded cache. Alternative one-time fix: enable Windows Developer Mode (Settings → System → For developers), which grants the privilege.
 
 ## Design Guidelines
 
@@ -128,3 +129,28 @@ Key principles from the skill:
 - No generic AI aesthetics (no Inter, no purple gradients)
 - CSS-only animations preferred
 - Commit to the dark, utilitarian tone
+
+## Handover Procedure
+
+When asked to hand over work to another agent, create a handover document in `docs/handovers/` with the format `YYYY-MM-DD-brief-description.md`.
+
+**Handover to Senior Agent** (usually Claude Opus)
+- Document the specific problem encountered
+- List all approaches tried and their results
+- Provide your hypothesis for resolution
+- Include current branch state, relevant errors, and reproduction steps
+- Assume the senior agent is unfamiliar with the context and needs to ramp up quickly
+
+**Handover to Junior Agent** (usually Claude Haiku or Sonnet)
+- Treat as offloading non-critical grunt work for a cheaper resource
+- Clearly delineate the discrete task(s) to complete
+- Provide context on what's already done and why
+- List acceptance criteria or definition of done
+- Include any blockers or gotchas learned so far
+
+**Handover to Peer** (same model, next shift)
+- Treat like handing off to the next shift the next day
+- Summarize progress made and current state
+- List next steps in order of priority
+- Document any decisions made and their rationale
+- Include fresh perspective notes if something seemed off

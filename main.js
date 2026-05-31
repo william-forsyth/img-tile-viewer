@@ -61,15 +61,33 @@ function createWindow() {
   win.on('resize', () => saveWindowState(win));
   win.on('move', () => saveWindowState(win));
 
-  ipcMain.on('window:minimize', () => win.minimize());
-  ipcMain.on('window:maximize', () => win.isMaximized() ? win.unmaximize() : win.maximize());
-  ipcMain.on('window:close', () => win.close());
-  ipcMain.on('window:fullscreen', () => win.setFullScreen(!win.isFullScreen()));
+  return win;
+}
+
+// Resolve the window a renderer IPC message came from (each window is independent).
+function senderWindow(event) {
+  return BrowserWindow.fromWebContents(event.sender);
+}
+
+// IPC handlers are registered once at module scope — registering them per-window
+// would throw on duplicate `ipcMain.handle` and double-fire the `ipcMain.on` calls.
+function registerIpc() {
+  ipcMain.on('window:minimize', (e) => senderWindow(e)?.minimize());
+  ipcMain.on('window:maximize', (e) => {
+    const win = senderWindow(e);
+    if (win) win.isMaximized() ? win.unmaximize() : win.maximize();
+  });
+  ipcMain.on('window:close', (e) => senderWindow(e)?.close());
+  ipcMain.on('window:fullscreen', (e) => {
+    const win = senderWindow(e);
+    if (win) win.setFullScreen(!win.isFullScreen());
+  });
+  ipcMain.on('window:new', () => createWindow());
 
   const IMAGE_EXTS = new Set(['.jpg','.jpeg','.png','.gif','.webp','.bmp','.svg','.avif']);
 
-  ipcMain.handle('folder:pick-root', async () => {
-    const result = await dialog.showOpenDialog(win, {
+  ipcMain.handle('folder:pick-root', async (e) => {
+    const result = await dialog.showOpenDialog(senderWindow(e), {
       properties: ['openDirectory'],
       title: 'Select a folder root',
     });
@@ -133,6 +151,7 @@ app.whenReady().then(() => {
     }
   });
 
+  registerIpc();
   createWindow();
 });
 
