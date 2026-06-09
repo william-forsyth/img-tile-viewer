@@ -11,7 +11,7 @@
   "devDependencies": {
     "electron": "^42.3.3",
     "electron-builder": "^26.0.0",
-    "jimp": "^0.22.12",
+    "jimp": "^1.6.1",
     "png-to-ico": "^2.1.8"
   },
   "build": {
