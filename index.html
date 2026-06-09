@@ -946,6 +946,36 @@
 
   .sidebar-warning { color: #e07040; font-size: 11px; }
 
+  /* Sidebar right-click context menu */
+  .context-menu {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    min-width: 180px;
+    padding: 4px;
+    background: rgba(26, 26, 26, 0.92);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 4px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+    font-size: 12px;
+    user-select: none;
+  }
+
+  .context-menu-item {
+    padding: 6px 10px;
+    color: #c8c8c8;
+    cursor: pointer;
+    border-radius: 2px;
+    white-space: nowrap;
+    transition: background var(--transition-fast), color var(--transition-fast);
+  }
+
+  .context-menu-item:hover {
+    background: var(--sidebar-active-bg);
+    color: var(--sidebar-active-color);
+  }
+
   .sidebar-footer {
     padding: 8px 10px;
     border-top: 1px solid var(--sidebar-border);
@@ -1056,6 +1086,7 @@
       <button id="btn-add-root">+ add folder root</button>
     </div>
   </div>
+  <div id="sidebar-context-menu" class="context-menu"></div>
   <div id="sidebar-resize"></div>
 
   <div id="main-area">
@@ -1137,6 +1168,7 @@
   const sidebarPanel    = document.getElementById('sidebar-panel');
   const sidebarResize   = document.getElementById('sidebar-resize');
   const sidebarTree     = document.getElementById('sidebar-tree');
+  const sidebarCtxMenu  = document.getElementById('sidebar-context-menu');
   const btnAddRoot      = document.getElementById('btn-add-root');
   const btnCollapse     = document.getElementById('btn-collapse-sidebar');
   const btnSidebarOpen  = document.getElementById('btn-sidebar');
@@ -1318,6 +1350,11 @@
   function clearAll() {
     if (focusedIdx !== -1) closeFocus();
     stopWatching();
+    if (sidebarState.activeFolder) {
+      window.electronAPI?.unwatchFolder(sidebarState.activeFolder);
+      sidebarState.activeFolder = null;
+      renderSidebar();
+    }
     images.forEach(img => URL.revokeObjectURL(img.url));
     images = [];
     userColumns = null;
@@ -2086,6 +2123,10 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      if (sidebarCtxMenu.style.display === 'block') {
+        hideSidebarContextMenu();
+        return;
+      }
       if (focusedIdx !== -1) {
         closeFocus();
       } else {
@@ -2194,6 +2235,11 @@
       }
       // Hydrate expanded nodes recursively (loads children for every path in expandedPaths)
       await Promise.all(sidebarState.roots.map(r => hydrateNode(r)));
+
+      // Start watchers for all expanded paths restored from saved state
+      for (const p of sidebarState.expandedPaths) {
+        window.electronAPI.watchFolder(p);
+      }
     } else {
       // First launch — open sidebar by default
       sidebarState.open = true;
@@ -2209,6 +2255,9 @@
 
     updateSortButtons();
     renderSidebar();
+
+    // Live-update handler for watched folders
+    window.electronAPI.onFolderChanged(handleFolderChanged);
 
     // Resize handle drag
     let resizeDragging = false;
@@ -2276,6 +2325,57 @@
       e.stopPropagation();
     }, { passive: true });
   }
+
+  // Right-click context menu for sidebar folder rows. Items are data-driven so
+  // adding a new action is a one-line append.
+  const SIDEBAR_CTX_ITEMS = [
+    { label: 'Open Folder in Explorer',
+      action: (p) => window.electronAPI?.openFolderInExplorer(p) },
+  ];
+
+  function hideSidebarContextMenu() {
+    sidebarCtxMenu.style.display = 'none';
+  }
+
+  function showSidebarContextMenu(x, y, folderPath) {
+    sidebarCtxMenu.innerHTML = '';
+    for (const item of SIDEBAR_CTX_ITEMS) {
+      const el = document.createElement('div');
+      el.className = 'context-menu-item';
+      el.textContent = item.label;
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideSidebarContextMenu();
+        item.action(folderPath);
+      });
+      sidebarCtxMenu.appendChild(el);
+    }
+    // Show off-screen first to measure, then clamp within the viewport.
+    sidebarCtxMenu.style.left = '0px';
+    sidebarCtxMenu.style.top = '0px';
+    sidebarCtxMenu.style.display = 'block';
+    const { width, height } = sidebarCtxMenu.getBoundingClientRect();
+    const left = Math.min(x, window.innerWidth - width - 4);
+    const top = Math.min(y, window.innerHeight - height - 4);
+    sidebarCtxMenu.style.left = Math.max(0, left) + 'px';
+    sidebarCtxMenu.style.top = Math.max(0, top) + 'px';
+  }
+
+  sidebarTree.addEventListener('contextmenu', (e) => {
+    const row = e.target.closest('.sidebar-row');
+    if (!row || !row.dataset.path) return;
+    e.preventDefault();
+    showSidebarContextMenu(e.clientX, e.clientY, row.dataset.path);
+  });
+
+  // Dismiss on any click/right-click elsewhere or when the tree scrolls.
+  document.addEventListener('click', () => hideSidebarContextMenu());
+  document.addEventListener('contextmenu', (e) => {
+    if (!e.target.closest('.sidebar-row') && !e.target.closest('.context-menu')) {
+      hideSidebarContextMenu();
+    }
+  });
+  sidebarTree.addEventListener('scroll', () => hideSidebarContextMenu());
 
   function renderSidebar() {
     sidebarTree.innerHTML = '';
@@ -2468,10 +2568,17 @@
   }
 
   function removeFolderRoot(rootPath) {
+    const root = sidebarState.roots.find(r => r.path === rootPath);
+    if (root) {
+      window.electronAPI?.unwatchFolder(rootPath);
+      pruneExpandedDescendants(root); // also unwatches expanded descendants
+    }
+
     sidebarState.roots = sidebarState.roots.filter(r => r.path !== rootPath);
 
     // Clear active folder if it was inside this root
     if (sidebarState.activeFolder && sidebarState.activeFolder.startsWith(rootPath)) {
+      window.electronAPI?.unwatchFolder(sidebarState.activeFolder);
       sidebarState.activeFolder = null;
     }
 
@@ -2494,7 +2601,72 @@
     if (!node.children) return;
     for (const child of node.children) {
       sidebarState.expandedPaths.delete(child.path);
+      window.electronAPI?.unwatchFolder(child.path);
       pruneExpandedDescendants(child);
+    }
+  }
+
+  function handleFolderChanged({ path, files, dirs }) {
+    // Grid sync — update images when the active folder changes on disk
+    if (path === sidebarState.activeFolder && files !== null) {
+      const newPathSet = new Set(files);
+      const currentPaths = new Map(
+        images
+          .filter(img => img.source === 'sidebar')
+          .map(img => [decodeURIComponent(img.url.slice('local-file://'.length)), img])
+      );
+
+      // Remove deleted images
+      images = images.filter(img => {
+        if (img.source !== 'sidebar') return true;
+        return newPathSet.has(decodeURIComponent(img.url.slice('local-file://'.length)));
+      });
+
+      // Add new images
+      for (const filePath of files) {
+        if (!currentPaths.has(filePath)) {
+          const filename = filePath.split(/[\\/]/).pop();
+          const url = 'local-file://' + encodeURIComponent(filePath);
+          images.push({
+            url,
+            file: {
+              name: filename,
+              arrayBuffer: async () => (await fetch(url)).arrayBuffer(),
+            },
+            source: 'sidebar',
+            promptSections: [],
+            promptHidden: [],
+            promptLoaded: false,
+          });
+        }
+      }
+
+      images.sort((a, b) =>
+        a.file.name.localeCompare(b.file.name, undefined, { numeric: true, sensitivity: 'base' })
+      );
+      render();
+    }
+
+    // Tree sync — update sidebar children when a watched folder changes on disk
+    const isRoot = sidebarState.roots.some(r => r.path === path);
+    if ((sidebarState.expandedPaths.has(path) || isRoot) && dirs !== null) {
+      const node = findNodeByPath(sidebarState.roots, path) ?? sidebarState.roots.find(r => r.path === path);
+      if (!node || node.children === null) return;
+
+      const newDirPaths = new Set(dirs.map(d => d.path));
+      const existingPaths = new Set(node.children.map(c => c.path));
+
+      // Add new subdirectories
+      for (const d of dirs) {
+        if (!existingPaths.has(d.path)) {
+          node.children.push({ path: d.path, name: d.name, mtime: d.mtime ?? 0, expanded: false, children: null });
+        }
+      }
+
+      // Remove deleted subdirectories
+      node.children = node.children.filter(c => newDirPaths.has(c.path));
+
+      renderSidebar();
     }
   }
 
@@ -2525,9 +2697,11 @@
     node.expanded = !node.expanded;
     if (node.expanded) {
       sidebarState.expandedPaths.add(folderPath);
+      window.electronAPI?.watchFolder(folderPath);
     } else {
       sidebarState.expandedPaths.delete(folderPath);
-      pruneExpandedDescendants(node);
+      window.electronAPI?.unwatchFolder(folderPath);
+      pruneExpandedDescendants(node); // also unwatches expanded descendants
     }
 
     renderSidebar();
@@ -2536,6 +2710,11 @@
 
   async function openFolder(folderPath, restoring = false) {
     if (!window.electronAPI) return;
+
+    // Unwatch the previous active folder before switching
+    if (sidebarState.activeFolder && sidebarState.activeFolder !== folderPath) {
+      window.electronAPI.unwatchFolder(sidebarState.activeFolder);
+    }
 
     const result = await window.electronAPI.listDir(folderPath);
     if (result === null) {
@@ -2575,6 +2754,7 @@
     );
 
     sidebarState.activeFolder = folderPath;
+    window.electronAPI.watchFolder(folderPath);
     renderSidebar();
 
     if (!restoring) saveSidebarState();

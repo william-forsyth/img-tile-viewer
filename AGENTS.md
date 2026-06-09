@@ -185,7 +185,7 @@ When asked to action PR review comments:
    - Check out the branch: `gh pr checkout <number>`
    - Read the full review comment thread: `gh pr view <number> --comments`
    - Action each finding from the review comment (make code changes, verify with lint/build)
-   - If the build passes, push to `dev`: `git push origin dev`
+   - If the build passes, push to the current feature branch or main if on it.
    - Post a follow-up comment via `gh pr comment <number> --body "..."` with:
      - **Changes made** — bulleted list of what was addressed, mapped to original finding numbers
      - Closing line: "Ready for re-review."
