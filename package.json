@@ -9,14 +9,14 @@
     "build": "electron-builder --win"
   },
   "devDependencies": {
-    "electron": "^32.3.3",
+    "electron": "^42.3.3",
     "electron-builder": "^26.0.0",
     "jimp": "^0.22.12",
     "png-to-ico": "^2.1.8"
   },
   "build": {
     "appId": "com.wforsyth.img-tile-viewer",
-    "productName": "img-tile-viewer",
+    "productName": "img-viewer",
     "icon": "assets/icon.ico",
     "files": [
       "index.html",
@@ -26,14 +26,17 @@
     ],
     "win": {
       "target": [
-        "nsis",
-        "portable"
+        "nsis"
       ],
       "forceCodeSigning": false
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "img-viewer",
+      "artifactName": "img-viewer-setup.${ext}"
     }
   }
 }
