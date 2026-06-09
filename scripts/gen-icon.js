@@ -17,7 +17,7 @@ const TILE = 0x3a3a3aff;
 const GAP  = 0x0e0e0eff;
 
 async function drawIcon(size) {
-  const img = new Jimp(size, size, BG);
+  const img = new Jimp({ width: size, height: size, color: BG });
 
   // Draw a 3×2 grid of tile rectangles
   const cols = 3, rows = 2;
@@ -40,7 +40,7 @@ async function drawIcon(size) {
     }
   }
 
-  return img.getBufferAsync(Jimp.MIME_PNG);
+  return img.getBuffer('image/png');
 }
 
 async function main() {

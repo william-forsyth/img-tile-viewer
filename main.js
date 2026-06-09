@@ -1,10 +1,13 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, Menu, dialog, protocol } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, dialog, protocol, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
 const DEFAULT_STATE = { width: 1280, height: 800, x: undefined, y: undefined };
+
+const IMAGE_EXTS = new Set(['.jpg','.jpeg','.png','.gif','.webp','.bmp','.svg','.avif']);
+const folderWatchers = new Map(); // path → { watcher, timer, sender }
 
 function stateFile() {
   return path.join(app.getPath('userData'), 'window-state.json');
@@ -84,8 +87,6 @@ function registerIpc() {
   });
   ipcMain.on('window:new', () => createWindow());
 
-  const IMAGE_EXTS = new Set(['.jpg','.jpeg','.png','.gif','.webp','.bmp','.svg','.avif']);
-
   ipcMain.handle('folder:pick-root', async (e) => {
     const result = await dialog.showOpenDialog(senderWindow(e), {
       properties: ['openDirectory'],
@@ -129,9 +130,59 @@ function registerIpc() {
       fs.writeFileSync(sidebarStateFile(), JSON.stringify(state));
     } catch { /* best-effort */ }
   });
+
+  ipcMain.handle('folder:watch', (event, dirPath) => {
+    if (folderWatchers.has(dirPath)) return;
+    const entry = { watcher: null, timer: null, sender: event.sender };
+    entry.watcher = fs.watch(dirPath, { persistent: false }, () => {
+      clearTimeout(entry.timer);
+      entry.timer = setTimeout(() => {
+        if (entry.sender.isDestroyed()) { folderWatchers.delete(dirPath); return; }
+        try {
+          const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+          const files = entries
+            .filter(e => e.isFile() && IMAGE_EXTS.has(path.extname(e.name).toLowerCase()))
+            .map(e => path.join(dirPath, e.name));
+          const dirs = entries
+            .filter(e => e.isDirectory() && !e.name.startsWith('.'))
+            .map(e => {
+              const full = path.join(dirPath, e.name);
+              let mtime = 0;
+              try { mtime = fs.statSync(full).mtimeMs; } catch { /* keep 0 */ }
+              return { name: e.name, path: full, mtime };
+            });
+          entry.sender.send('folder:changed', { path: dirPath, files, dirs });
+        } catch {
+          entry.sender.send('folder:changed', { path: dirPath, files: null, dirs: null });
+        }
+      }, 200);
+    });
+    entry.watcher.on('error', () => folderWatchers.delete(dirPath));
+    folderWatchers.set(dirPath, entry);
+  });
+
+  ipcMain.handle('folder:open-in-explorer', async (_event, dirPath) => {
+    try {
+      if (!fs.statSync(dirPath).isDirectory()) return false;
+      const err = await shell.openPath(dirPath); // returns '' on success, message on failure
+      return err === '';
+    } catch { return false; }
+  });
+
+  ipcMain.handle('folder:unwatch', (_event, dirPath) => {
+    const entry = folderWatchers.get(dirPath);
+    if (!entry) return;
+    clearTimeout(entry.timer);
+    entry.watcher.close();
+    folderWatchers.delete(dirPath);
+  });
 }
 
 app.whenReady().then(() => {
+  // Match the running process to the installer-created shortcut so Windows
+  // groups them under one taskbar icon and the pin keeps working.
+  app.setAppUserModelId('com.wforsyth.img-tile-viewer');
+
   const IMAGE_MIME = {
     '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
     '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp',

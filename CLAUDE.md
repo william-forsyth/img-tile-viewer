@@ -23,7 +23,7 @@ Images are loaded via `URL.createObjectURL()` from dropped/selected files. **Ima
 |---|---|
 | `main.js` | Main process: creates the frameless `BrowserWindow`, registers `window:*` IPC handlers, persists window size/position to a JSON file in `app.getPath('userData')`, suppresses the default menu |
 | `preload.js` | Exposes a minimal `window.electronAPI` (minimize/maximize/close/fullscreen + maximize/fullscreen change callbacks) via `contextBridge`. `contextIsolation: true`, `nodeIntegration: false` |
-| `package.json` | Electron + electron-builder devDeps, `start`/`build` scripts, NSIS + portable build targets |
+| `package.json` | Electron + electron-builder devDeps, `start`/`build` scripts, NSIS installer build target |
 | `scripts/launch.js` | Dev launcher for `npm start` — spawns Electron with `ELECTRON_RUN_AS_NODE` stripped (see [Gotchas](#gotchas)) |
 | `scripts/gen-icon.js` | One-shot generator for `assets/icon.ico` (3×2 tile-grid motif). Already run; kept for reproducibility |
 | `assets/icon.ico` | App icon (taskbar, Alt+Tab, window) |
@@ -92,19 +92,25 @@ npm start        # launches the Electron app (via scripts/launch.js)
 
 ### Build a distributable
 ```
-npm run build    # electron-builder --win → dist/
+npm run build    # → dist/img-viewer-setup.exe
 ```
-Produces two artifacts in `dist/` (gitignored):
-- **NSIS installer** (`...Setup.exe`) — install once, appears in Start Menu, pin to taskbar
-- **Portable** `.exe` — single-file, no install, for quick testing
+`npm run build` is a two-step chain defined by the `scripts` in `package.json`:
+
+1. **`prebuild`** (`node scripts/prepare-wincodesign.js`) runs automatically first — npm fires any `pre<name>` script before `<name>`. It pre-seeds the winCodeSign cache so electron-builder doesn't hit the symlink-privilege failure (see [Gotchas](#gotchas)).
+2. **`build`** (`electron-builder --win`) then reads the `build` config in `package.json`, bundles the `build.files` (`index.html`, `main.js`, `preload.js`, `assets/**`) plus the Electron runtime, and emits the configured `win.target`.
+
+The target is **NSIS** (`build.win.target: ["nsis"]`, configured under `build.nsis`). Produces one artifact in `dist/` (gitignored):
+- **NSIS installer** `img-viewer-setup.exe` — a one-click, per-user installer. Running it installs the app to `%LOCALAPPDATA%\Programs\img-viewer\img-viewer.exe` (a fixed path) and creates Start Menu + desktop shortcuts. Pin to the taskbar from the running app or a shortcut — it stays valid across launches.
+
+> **Build process changed (portable → NSIS).** This used to build a single self-extracting `img-viewer.exe` (`win.target: ["portable"]`). That target unpacked to a *different temp folder on every launch*, so pinning the running app captured a temp path that was gone by the next launch — breaking the pin with "the item this shortcut refers to has been changed or moved." We switched to an NSIS installer, which installs to a stable location (what taskbar pinning needs). Net effect on workflow: the build now emits an **installer** you run once (and re-run to update), not a portable exe you copy around. `npm start` / dev iteration is unchanged.
 
 ### Updating the app (it's no longer just an HTML file)
-The shipped `.exe` embeds a **copy** of `index.html` taken at build time. Editing `index.html` does **not** update an already-installed app. To roll out a change:
+The shipped `.exe` embeds a **copy** of `index.html` taken at build time. Editing `index.html` does **not** update an already-running copy of the app. To roll out a change:
 
 1. Edit `index.html` (and/or `main.js`/`preload.js`).
-2. Bump `version` in `package.json` (electron-builder/electron-updater compare on this).
+2. **Bump `version` in `package.json`.** NSIS uses the version to recognise the run as an upgrade rather than a fresh install. It mostly works if you forget, but bumping is the clean path and avoids edge cases where the installer decides nothing changed.
 3. `npm run build`.
-4. Run the new NSIS installer (or replace the portable `.exe`).
+4. **Quit the app first**, then run the freshly built `img-viewer-setup.exe`. It overwrites the installed copy in place at `%LOCALAPPDATA%\Programs\img-viewer\`; existing taskbar pins and shortcuts keep working. If `img-viewer.exe` is still running, Windows can't replace the file in place and the install will fail or prompt.
 
 For quick iteration during development, just use `npm start` — it loads `index.html` live from disk, so no rebuild is needed to see changes (restart the app to pick them up). Rebuild only when you need a new installer.
 

@@ -16,4 +16,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listDir:           (p)     => ipcRenderer.invoke('folder:list-dir', p),
   loadSidebarState:  ()      => ipcRenderer.invoke('folder:load-state'),
   saveSidebarState:  (state) => ipcRenderer.invoke('folder:save-state', state),
+  watchFolder:       (p)     => ipcRenderer.invoke('folder:watch', p),
+  unwatchFolder:     (p)     => ipcRenderer.invoke('folder:unwatch', p),
+  openFolderInExplorer: (p)  => ipcRenderer.invoke('folder:open-in-explorer', p),
+  onFolderChanged:   (cb)    => ipcRenderer.on('folder:changed', (_, data) => cb(data)),
 });
